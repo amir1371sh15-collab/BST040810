@@ -1,6 +1,6 @@
 <?php
 require_once __DIR__ . '/../../config/init.php';
-if (!has_permission('planning.manage')) { die('شما مجوز دسترسی به این صفحه را ندارید.'); }
+if (!has_permission('planning.view')) { die('شما مجوز دسترسی به این صفحه را ندارید.'); }
 
 const TABLE_NAME = 'tbl_bom_structure';
 const PRIMARY_KEY = 'BomID';

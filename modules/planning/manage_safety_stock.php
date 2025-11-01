@@ -1,7 +1,7 @@
 <?php
 require_once __DIR__ . '/../../config/init.php';
 // مجوز مدیریت نقطه سفارش (باید در بخش دسترسی‌ها اضافه شود)
-if (!has_permission('planning.manage_safety_stock')) { die('شما مجوز دسترسی به این صفحه را ندارید.'); }
+if (!has_permission('planning.safety_stock.view')) { die('شما مجوز دسترسی به این صفحه را ندارید.'); }
 
 const TABLE_NAME = 'tbl_inventory_safety_stock';
 const PRIMARY_KEY = 'SafetyStockID';

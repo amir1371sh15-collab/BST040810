@@ -1,8 +1,12 @@
 <?php
 require_once __DIR__ . '/../../config/init.php';
-if (!has_permission('users.permissions.manage')) { die('شما مجوز مدیریت دسترسی‌ها را ندارید.'); }
 
-// ساختار دسترسی‌ها با اضافه شدن ماژول برنامه‌ریزی و انبار مواد اولیه
+// بررسی دسترسی برای ورود به این صفحه
+if (!has_permission('users.permissions.manage')) {
+    die('شما مجوز مدیریت دسترسی‌ها را ندارید.');
+}
+
+// ساختار کامل دسترسی‌های سیستم
 $permissions_structure = [
     'base_info' => [
         'label' => 'اطلاعات پایه',
@@ -48,7 +52,7 @@ $permissions_structure = [
             'pending_transactions.manage' => 'تعیین تکلیف تراکنش‌ها',
         ]
     ],
-    // --- ماژول جدید برنامه‌ریزی ---
+    // --- ماژول برنامه‌ریزی ---
     'planning' => [
         'label' => 'برنامه‌ریزی تولید (MRP)',
         'permissions' => [
@@ -62,8 +66,17 @@ $permissions_structure = [
             'view_alerts' => 'مشاهده هشدارهای موجودی قطعات (WIP)',
             'mrp.run' => 'اجرای MRP و مشاهده نتایج'
         ]
+   ],
+    'planning_constraints' => [
+        'label' => 'برنامه‌ریزی - محدودیت‌ها (FCS)',
+        'permissions' => [
+            'view' => 'مشاهده داشبورد محدودیت‌ها',
+            'manage' => 'مدیریت قوانین محدودیت‌ها',
+            // [دسترسی جدید اضافه شده]
+            'planning_capacity.run' => 'اجرا و بازبینی ظرفیت روزانه'
+        ]
     ],
-    // --- به‌روزرسانی ماژول انبار ---
+    // --- [پایان بخش اضافه شده] ---
     'warehouse' => [
         'label' => 'انبار',
         'permissions' => [
@@ -96,30 +109,62 @@ $message = $_SESSION['message'] ?? '';
 $message_type = $_SESSION['message_type'] ?? '';
 unset($_SESSION['message'], $_SESSION['message_type']);
 
+// --- مدیریت ذخیره دسترسی‌ها ---
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['role_id'])) {
     $role_id_to_update = (int)$_POST['role_id'];
     $submitted_permissions = $_POST['permissions'] ?? [];
+    
     try {
         $pdo->beginTransaction();
+        
+        // 1. حذف دسترسی‌های قبلی
         $delete_stmt = $pdo->prepare("DELETE FROM tbl_role_permissions WHERE RoleID = ?");
         $delete_stmt->execute([$role_id_to_update]);
+        
+        // 2. درج دسترسی‌های جدید
         $insert_stmt = $pdo->prepare("INSERT INTO tbl_role_permissions (RoleID, PermissionKey) VALUES (?, ?)");
         foreach ($submitted_permissions as $permission_key) {
             $insert_stmt->execute([$role_id_to_update, $permission_key]);
         }
+        
         $pdo->commit();
-        $_SESSION['message'] = 'دسترسی‌ها با موفقیت بروزرسانی شد.';
+
+        // --- [اصلاحیه کلیدی برای رفع باگ نشست (Session Bug)] ---
+        // بررسی می‌کند آیا نقشی که ویرایش شد، نقش کاربر فعلی است؟
+        if (isset($_SESSION['user_role_id']) && $role_id_to_update == $_SESSION['user_role_id']) {
+            
+            // بله، پس نشست (session) کاربر فعلی را بلافاصله بازخوانی کن
+            $new_perms_stmt = $pdo->prepare("SELECT PermissionKey FROM tbl_role_permissions WHERE RoleID = ?");
+            $new_perms_stmt->execute([$role_id_to_update]);
+            $new_permissions_raw = $new_perms_stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            // بازنویسی دسترسی‌های نشست فعلی
+            $_SESSION['user_permissions'] = array_column($new_permissions_raw, 'PermissionKey');
+            
+            $_SESSION['message'] = 'دسترسی‌ها با موفقیت بروزرسانی شد. (دسترسی‌های شما بلافاصله اعمال شد)';
+        } else {
+            // اگر نقش دیگری ویرایش شده، فقط پیام موفقیت عادی را نشان بده
+            $_SESSION['message'] = 'دسترسی‌ها با موفقیت بروزرسانی شد.';
+        }
+        // --- [پایان اصلاحیه] ---
+        
         $_SESSION['message_type'] = 'success';
+        
     } catch (PDOException $e) {
         $pdo->rollBack();
         $_SESSION['message'] = 'خطا در بروزرسانی دسترسی‌ها: ' . $e->getMessage();
         $_SESSION['message_type'] = 'danger';
     }
+    
+    // ریدایرکت به همین صفحه برای نمایش پیام
     header("Location: " . BASE_URL . "modules/users/manage_permissions.php?role_id=" . $role_id_to_update);
     exit;
 }
 
+// --- دریافت اطلاعات برای نمایش صفحه ---
 $roles = find_all($pdo, "SELECT * FROM tbl_roles ORDER BY RoleName");
+
+// اگر role_id در URL بود، دسترسی‌های آن نقش را واکشی کن
 if (isset($_GET['role_id']) && is_numeric($_GET['role_id'])) {
     $selected_role_id = (int)$_GET['role_id'];
     $current_permissions_raw = find_all($pdo, "SELECT PermissionKey FROM tbl_role_permissions WHERE RoleID = ?", [$selected_role_id]);
@@ -129,11 +174,20 @@ if (isset($_GET['role_id']) && is_numeric($_GET['role_id'])) {
 $pageTitle = "مدیریت دسترسی‌ها";
 include __DIR__ . '/../../templates/header.php';
 ?>
+
+<!-- بخش ۱: انتخاب نقش -->
 <div class="page-header d-flex justify-content-between align-items-center">
     <h1 class="h3 mb-0"><?php echo $pageTitle; ?></h1>
     <a href="<?php echo BASE_URL; ?>modules/users/index.php" class="btn btn-outline-secondary"><i class="bi bi-arrow-right"></i> بازگشت</a>
 </div>
-<?php if ($message): ?><div class="alert alert-<?php echo $message_type; ?> alert-dismissible fade show" role="alert"><?php echo htmlspecialchars($message); ?><button type="button" class="btn-close" data-bs-dismiss="alert"></button></div><?php endif; ?>
+
+<?php if ($message): ?>
+    <div class="alert alert-<?php echo $message_type; ?> alert-dismissible fade show" role="alert">
+        <?php echo htmlspecialchars($message); ?>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+<?php endif; ?>
+
 <div class="card content-card">
     <div class="card-header"><h5 class="mb-0">۱. انتخاب نقش</h5></div>
     <div class="card-body">
@@ -143,19 +197,24 @@ include __DIR__ . '/../../templates/header.php';
                 <select class="form-select" id="role_id_selector" name="role_id" onchange="this.form.submit()">
                     <option value="">-- انتخاب نقش --</option>
                     <?php foreach ($roles as $role): ?>
-                        <option value="<?php echo $role['RoleID']; ?>" <?php echo ($selected_role_id == $role['RoleID']) ? 'selected' : ''; ?>><?php echo htmlspecialchars($role['RoleName']); ?></option>
+                        <option value="<?php echo $role['RoleID']; ?>" <?php echo ($selected_role_id == $role['RoleID']) ? 'selected' : ''; ?>>
+                            <?php echo htmlspecialchars($role['RoleName']); ?>
+                        </option>
                     <?php endforeach; ?>
                 </select>
             </div>
         </form>
     </div>
 </div>
+
+<!-- بخش ۲: تخصیص دسترسی‌ها (فقط اگر نقشی انتخاب شده باشد) -->
 <?php if ($selected_role_id): ?>
 <div class="card content-card mt-4">
     <div class="card-header"><h5 class="mb-0">۲. تخصیص دسترسی‌ها برای نقش "<?php echo htmlspecialchars(find_one_by_field($pdo, 'tbl_roles', 'RoleID', $selected_role_id)['RoleName'] ?? 'نامشخص'); ?>"</h5></div>
     <div class="card-body">
         <form method="POST" action="manage_permissions.php">
             <input type="hidden" name="role_id" value="<?php echo $selected_role_id; ?>">
+            
             <?php foreach ($permissions_structure as $module_key => $module_data): ?>
                 <fieldset class="mb-4">
                     <legend class="h6 mb-3 p-2 bg-light rounded"><?php echo htmlspecialchars($module_data['label']); ?></legend>
@@ -171,10 +230,12 @@ include __DIR__ . '/../../templates/header.php';
                     </div>
                 </fieldset>
             <?php endforeach; ?>
+            
             <button type="submit" class="btn btn-success mt-3"><i class="bi bi-check2-circle"></i> ذخیره تغییرات</button>
         </form>
     </div>
 </div>
 <?php endif; ?>
+
 <?php include __DIR__ . '/../../templates/footer.php'; ?>
 

@@ -1,7 +1,7 @@
 <?php
 require_once __DIR__ . '/../../config/init.php';
 
-if (!has_permission('planning.run_mrp')) {
+if (!has_permission('planning.mrp.run')) {
     die('شما مجوز دسترسی به این صفحه را ندارید.');
 }
 
