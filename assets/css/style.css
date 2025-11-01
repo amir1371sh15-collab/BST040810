@@ -1,0 +1,92 @@
+/* General Body Styles */
+body {
+    font-family: 'Vazirmatn', sans-serif;
+    background-color: #f4f7f9; /* A lighter, more modern cool gray */
+}
+
+/* Page Header Style (for titles like "مدیریت دپارتمان‌ها") */
+.page-header {
+    background-color: #ffffff;
+    padding: 1.5rem 2rem;
+    border-radius: 10px;
+    margin-bottom: 2rem;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    border: 1px solid #e9ecef;
+}
+
+/* Module Card Styles (Main Dashboard) */
+.module-card a {
+    text-decoration: none;
+    color: inherit;
+    display: block;
+    height: 100%;
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+}
+
+.module-card {
+    border-radius: 12px;
+    border: 1px solid #e9ecef; /* Subtle border */
+    background-color: #ffffff;
+}
+
+.module-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+}
+
+.module-card .card-body {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: 1.5rem;
+}
+
+.module-card .icon {
+    font-size: 3rem;
+    color: #0d6efd; /* Primary color */
+    margin-bottom: 1rem;
+}
+
+.module-card .card-title {
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+
+.module-card .card-text {
+    font-size: 0.9rem;
+    color: #6c757d; /* Muted text color */
+}
+
+/* Form and Table Card Styles */
+.content-card {
+    border: 1px solid #e9ecef;
+    border-radius: 10px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    background-color: #ffffff;
+}
+
+.content-card .card-header {
+    background-color: transparent; /* Cleaner look */
+    border-bottom: 1px solid #e9ecef;
+    font-weight: 600;
+    font-size: 1.1rem;
+    padding: 1rem 1.25rem;
+}
+
+/* Table Styles */
+.table th {
+    font-weight: 600;
+    white-space: nowrap;
+    background-color: #f8f9fa;
+}
+
+.table td {
+    vertical-align: middle;
+}
+
+.table-hover tbody tr:hover {
+    background-color: #f1f5f9; /* A subtle hover effect for table rows */
+}
+
