@@ -31,6 +31,9 @@ include __DIR__ . '/../../templates/header.php';
     <div class="col"><div class="card h-100 module-card shadow-sm"><a href="routes.php"><div class="card-body">
         <div class="icon mb-3"><i class="bi bi-signpost-split-fill"></i></div><h5 class="card-title">مدیریت مسیرهای تولید</h5><p class="card-text">تعریف نقشه راه تولید برای هر خانواده قطعه.</p>
     </div></a></div></div>
+    <div class="col"><div class="card h-100 module-card shadow-sm"><a href="manage_route_sequence.php"><div class="card-body">
+        <div class="icon mb-3"><i class="bi bi-clock-history"></i></div><h5 class="card-title">ترتیب‌دهی مسیرهای تولید</h5><p class="card-text">تعریف شماره مرحله و ترتیب مراحل تولید برای هر خانواده.</p>
+    </div></a></div></div>
     <!-- New Card for Part Statuses -->
     <div class="col"><div class="card h-100 module-card shadow-sm"><a href="part_statuses.php"><div class="card-body">
         <div class="icon mb-3"><i class="bi bi-tags-fill"></i></div><h5 class="card-title">مدیریت وضعیت‌های قطعه</h5><p class="card-text">تعریف وضعیت‌های ممکن برای قطعات در فرآیند تولید.</p>

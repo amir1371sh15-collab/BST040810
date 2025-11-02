@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Nov 02, 2025 at 12:09 PM
+-- Generation Time: Nov 02, 2025 at 02:38 PM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -1991,39 +1991,6 @@ CREATE TABLE `tbl_planning_capacity_override` (
 -- --------------------------------------------------------
 
 --
--- Table structure for table `tbl_planning_mrp_results`
---
-
-CREATE TABLE `tbl_planning_mrp_results` (
-  `ResultID` int(11) NOT NULL,
-  `RunID` int(11) NOT NULL,
-  `ItemType` enum('محصول نهایی','قطعه','ماده اولیه') NOT NULL,
-  `ItemID` varchar(50) NOT NULL COMMENT 'PartID or RawMaterialID',
-  `ItemName` varchar(255) NOT NULL,
-  `ItemStatusID` int(11) DEFAULT NULL,
-  `GrossRequirement` decimal(12,2) NOT NULL,
-  `AvailableSupply` decimal(12,2) NOT NULL,
-  `NetRequirement` decimal(12,2) NOT NULL,
-  `Unit` varchar(10) NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci;
-
--- --------------------------------------------------------
-
---
--- Table structure for table `tbl_planning_mrp_run`
---
-
-CREATE TABLE `tbl_planning_mrp_run` (
-  `RunID` int(11) NOT NULL,
-  `RunDate` timestamp NOT NULL DEFAULT current_timestamp(),
-  `RunByUserID` int(11) DEFAULT NULL,
-  `SelectedOrderIDs` text DEFAULT NULL,
-  `Status` enum('Pending','Completed') NOT NULL DEFAULT 'Pending'
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci;
-
--- --------------------------------------------------------
-
---
 -- Table structure for table `tbl_planning_part_to_group`
 --
 
@@ -2212,26 +2179,6 @@ INSERT INTO `tbl_planning_vibration_incompatibility` (`PrimaryPartID`, `Incompat
 (12, 9),
 (12, 10),
 (12, 11);
-
--- --------------------------------------------------------
-
---
--- Table structure for table `tbl_planning_work_orders`
---
-
-CREATE TABLE `tbl_planning_work_orders` (
-  `WorkOrderID` int(11) NOT NULL,
-  `RunID` int(11) NOT NULL,
-  `StationID` int(11) NOT NULL,
-  `PartID` int(11) NOT NULL,
-  `RequiredStatusID` int(11) NOT NULL COMMENT 'وضعیت مورد نیاز ورودی',
-  `TargetStatusID` int(11) NOT NULL COMMENT 'وضعیت هدف خروجی',
-  `Quantity` decimal(12,2) NOT NULL,
-  `Unit` varchar(10) NOT NULL,
-  `DueDate` date NOT NULL,
-  `Priority` int(11) NOT NULL DEFAULT 10,
-  `Status` enum('Generated','InProgress','Completed') NOT NULL DEFAULT 'Generated'
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci;
 
 -- --------------------------------------------------------
 
@@ -3189,6 +3136,8 @@ CREATE TABLE `tbl_routes` (
   `ToStationID` int(11) NOT NULL,
   `NewStatus` varchar(100) NOT NULL COMMENT 'وضعیت قطعه پس از خروج از ایستگاه مبدا',
   `NewStatusID` int(11) DEFAULT NULL,
+  `RequiredStatusID` int(11) DEFAULT NULL COMMENT 'وضعیت ورودی مورد نیاز برای این مرحله',
+  `StepNumber` int(11) NOT NULL DEFAULT 99 COMMENT 'ترتیب اجرای مرحله در مسیر',
   `IsFinalStage` tinyint(1) DEFAULT 0 COMMENT 'آیا این ایستگاه پایانی مسیر است؟ (0=خیر, 1=بله)'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='مسیرهای استاندارد جریان تولید برای خانواده‌های قطعات';
 
@@ -3196,42 +3145,42 @@ CREATE TABLE `tbl_routes` (
 -- Dumping data for table `tbl_routes`
 --
 
-INSERT INTO `tbl_routes` (`RouteID`, `FamilyID`, `FromStationID`, `ToStationID`, `NewStatus`, `NewStatusID`, `IsFinalStage`) VALUES
-(1, 1, 2, 4, 'تسمه رول شده', 1, 0),
-(2, 1, 4, 8, 'آبکاری شده', 2, 0),
-(3, 1, 8, 12, 'آبکاری شده', 2, 1),
-(4, 12, 2, 8, 'برش خورده\r\n', 3, 0),
-(5, 12, 8, 3, 'برش خورده\r\n', 3, 0),
-(6, 12, 3, 8, 'دنده شده\r\n', 4, 0),
-(7, 12, 8, 5, 'دنده شده\r\n', 4, 0),
-(8, 12, 5, 8, 'رول شده', 1, 0),
-(9, 12, 8, 12, 'رول شده', 1, 1),
-(10, 11, 2, 8, 'دنده شده\r\n', 4, 0),
-(12, 11, 5, 8, 'رول شده', 1, 0),
-(13, 11, 8, 5, 'دنده شده\r\n', 4, 0),
-(14, 11, 8, 12, 'رول شده', 1, 1),
-(15, 10, 2, 1, 'پرسکاری شده', 6, 0),
-(16, 10, 1, 8, 'شستشو شده', 7, 0),
-(17, 10, 8, 12, 'شستشو شده', 7, 1),
-(18, 2, 2, 4, 'پرسکاری شده', 6, 0),
-(19, 2, 4, 8, 'آبکاری شده', 2, 0),
-(20, 2, 8, 12, 'آبکاری شده', 2, 1),
-(21, 4, 6, 1, 'رزوه شده', 8, 0),
-(22, 4, 1, 8, 'شستشو شده', 7, 0),
-(23, 4, 8, 12, 'شستشو شده', 7, 1),
-(24, 6, 6, 4, 'پرسکاری شده', 6, 0),
-(25, 6, 4, 8, 'آبکاری شده', 2, 0),
-(26, 6, 8, 12, 'آبکاری شده', 2, 1),
-(27, 9, 12, 9, 'مونتاژ شده', 9, 0),
-(28, 9, 9, 10, 'مونتاژ شده\r\n', 9, 0),
-(29, 9, 10, 11, 'بسته بندی شده\r\n', 11, 1),
-(30, 3, 12, 9, 'مونتاژ شده\r\n', 9, 0),
-(31, 3, 9, 4, 'مونتاژ شده\r\n', 9, 0),
-(32, 3, 4, 9, 'آبکاری شده', 2, 0),
-(33, 3, 9, 10, 'آبکاری شده', 2, 0),
-(34, 3, 10, 11, 'بسته بندی شده\r\n', 11, 1),
-(36, 9, 11, 13, '', 11, 1),
-(37, 3, 11, 13, '', 11, 1);
+INSERT INTO `tbl_routes` (`RouteID`, `FamilyID`, `FromStationID`, `ToStationID`, `NewStatus`, `NewStatusID`, `RequiredStatusID`, `StepNumber`, `IsFinalStage`) VALUES
+(1, 1, 2, 4, 'تسمه رول شده', 1, NULL, 1, 0),
+(2, 1, 4, 8, 'آبکاری شده', 2, NULL, 2, 0),
+(3, 1, 8, 12, 'آبکاری شده', 2, NULL, 3, 1),
+(4, 12, 2, 8, 'برش خورده\r\n', 3, NULL, 1, 0),
+(5, 12, 8, 3, 'برش خورده\r\n', 3, NULL, 2, 0),
+(6, 12, 3, 8, 'دنده شده\r\n', 4, NULL, 3, 0),
+(7, 12, 8, 5, 'دنده شده\r\n', 4, NULL, 4, 0),
+(8, 12, 5, 8, 'رول شده', 1, NULL, 5, 0),
+(9, 12, 8, 12, 'رول شده', 1, NULL, 6, 1),
+(10, 11, 2, 8, 'دنده شده\r\n', 4, NULL, 1, 0),
+(12, 11, 5, 8, 'رول شده', 1, NULL, 3, 0),
+(13, 11, 8, 5, 'دنده شده\r\n', 4, NULL, 2, 0),
+(14, 11, 8, 12, 'رول شده', 1, NULL, 4, 1),
+(15, 10, 2, 1, 'پرسکاری شده', 6, NULL, 1, 0),
+(16, 10, 1, 8, 'شستشو شده', 7, NULL, 2, 0),
+(17, 10, 8, 12, 'شستشو شده', 7, NULL, 3, 1),
+(18, 2, 2, 4, 'پرسکاری شده', 6, NULL, 1, 0),
+(19, 2, 4, 8, 'آبکاری شده', 2, NULL, 2, 0),
+(20, 2, 8, 12, 'آبکاری شده', 2, NULL, 3, 1),
+(21, 4, 6, 1, 'رزوه شده', 8, NULL, 1, 0),
+(22, 4, 1, 8, 'شستشو شده', 7, NULL, 2, 0),
+(23, 4, 8, 12, 'شستشو شده', 7, NULL, 3, 1),
+(24, 6, 6, 4, 'پرسکاری شده', 6, NULL, 1, 0),
+(25, 6, 4, 8, 'آبکاری شده', 2, NULL, 2, 0),
+(26, 6, 8, 12, 'آبکاری شده', 2, NULL, 3, 1),
+(27, 9, 12, 9, 'مونتاژ شده', 9, NULL, 1, 0),
+(28, 9, 9, 10, 'مونتاژ شده\r\n', 9, NULL, 2, 0),
+(29, 9, 10, 11, 'بسته بندی شده\r\n', 11, NULL, 3, 1),
+(30, 3, 12, 9, 'مونتاژ شده\r\n', 9, NULL, 1, 0),
+(31, 3, 9, 4, 'مونتاژ شده\r\n', 9, NULL, 2, 0),
+(32, 3, 4, 9, 'آبکاری شده', 2, NULL, 3, 0),
+(33, 3, 9, 10, 'آبکاری شده', 2, NULL, 4, 0),
+(34, 3, 10, 11, 'بسته بندی شده\r\n', 11, NULL, 5, 1),
+(36, 9, 11, 13, '', 11, NULL, 4, 1),
+(37, 3, 11, 13, '', 11, NULL, 6, 1);
 
 -- --------------------------------------------------------
 
@@ -3246,6 +3195,8 @@ CREATE TABLE `tbl_route_overrides` (
   `ToStationID` int(11) NOT NULL,
   `OutputStatus` varchar(100) DEFAULT NULL COMMENT 'وضعیت قطعه پس از انجام این مسیر غیراستاندارد',
   `OutputStatusID` int(11) DEFAULT NULL,
+  `RequiredStatusID` int(11) DEFAULT NULL COMMENT 'وضعیت ورودی مورد نیاز برای این مرحله',
+  `StepNumber` int(11) NOT NULL DEFAULT 99 COMMENT 'ترتیب اجرای مرحله در مسیر',
   `DeviationID` int(11) DEFAULT NULL COMMENT 'FK به جدول مجوزهای ارفاقی (اختیاری)',
   `IsActive` tinyint(1) NOT NULL DEFAULT 1 COMMENT '0=Inactive, 1=Active',
   `Description` text DEFAULT NULL COMMENT 'توضیحات دلیل تعریف این مسیر غیراستاندارد'
@@ -3255,16 +3206,16 @@ CREATE TABLE `tbl_route_overrides` (
 -- Dumping data for table `tbl_route_overrides`
 --
 
-INSERT INTO `tbl_route_overrides` (`OverrideID`, `FamilyID`, `FromStationID`, `ToStationID`, `OutputStatus`, `OutputStatusID`, `DeviationID`, `IsActive`, `Description`) VALUES
-(1, 1, 2, 8, 'تسمه آبکاری نشده', 1, NULL, 1, 'باز بودن دهانه تسمه و نیاز به مونتاژ مستقیم'),
-(2, 1, 8, 12, 'تسمه آبکاری نشده', 17, NULL, 1, ''),
-(3, 9, 12, 8, 'بست آبکاری نشده', 17, NULL, 1, ''),
-(4, 9, 8, 4, 'بست آبکاری نشده', 17, NULL, 1, ''),
-(6, 3, 9, 4, 'بست سفت  شده', 19, NULL, 1, ''),
-(7, 3, 4, 10, 'بست آبکاری شده نرم شده', 20, NULL, 1, ''),
-(8, 1, 8, 4, 'آبکاری ضعیف', 21, NULL, 1, ''),
-(9, 2, 8, 4, 'آبکاری ضعیف', 21, NULL, 1, ''),
-(11, 6, 8, 4, 'آبکاری ضعیف', 21, NULL, 1, '');
+INSERT INTO `tbl_route_overrides` (`OverrideID`, `FamilyID`, `FromStationID`, `ToStationID`, `OutputStatus`, `OutputStatusID`, `RequiredStatusID`, `StepNumber`, `DeviationID`, `IsActive`, `Description`) VALUES
+(1, 1, 2, 8, 'تسمه آبکاری نشده', 1, NULL, 6, NULL, 1, 'باز بودن دهانه تسمه و نیاز به مونتاژ مستقیم'),
+(2, 1, 8, 12, 'تسمه آبکاری نشده', 17, NULL, 4, NULL, 1, ''),
+(3, 9, 12, 8, 'بست آبکاری نشده', 17, NULL, 6, NULL, 1, ''),
+(4, 9, 8, 4, 'بست آبکاری نشده', 17, NULL, 5, NULL, 1, ''),
+(6, 3, 9, 4, 'بست سفت  شده', 19, NULL, 8, NULL, 1, ''),
+(7, 3, 4, 10, 'بست آبکاری شده نرم شده', 20, NULL, 7, NULL, 1, ''),
+(8, 1, 8, 4, 'آبکاری ضعیف', 21, NULL, 5, NULL, 1, ''),
+(9, 2, 8, 4, 'آبکاری ضعیف', 21, NULL, 4, NULL, 1, ''),
+(11, 6, 8, 4, 'آبکاری ضعیف', 21, NULL, 4, NULL, 1, '');
 
 -- --------------------------------------------------------
 
@@ -3993,20 +3944,6 @@ ALTER TABLE `tbl_planning_capacity_override`
   ADD KEY `FK_planning_override_user` (`LastUpdatedBy`);
 
 --
--- Indexes for table `tbl_planning_mrp_results`
---
-ALTER TABLE `tbl_planning_mrp_results`
-  ADD PRIMARY KEY (`ResultID`),
-  ADD KEY `fk_mrp_result_run` (`RunID`);
-
---
--- Indexes for table `tbl_planning_mrp_run`
---
-ALTER TABLE `tbl_planning_mrp_run`
-  ADD PRIMARY KEY (`RunID`),
-  ADD KEY `fk_mrp_run_user` (`RunByUserID`);
-
---
 -- Indexes for table `tbl_planning_part_to_group`
 --
 ALTER TABLE `tbl_planning_part_to_group`
@@ -4036,15 +3973,6 @@ ALTER TABLE `tbl_planning_station_capacity_rules`
 ALTER TABLE `tbl_planning_vibration_incompatibility`
   ADD PRIMARY KEY (`PrimaryPartID`,`IncompatiblePartID`) USING BTREE,
   ADD KEY `fk_vib_incompatible_part` (`IncompatiblePartID`);
-
---
--- Indexes for table `tbl_planning_work_orders`
---
-ALTER TABLE `tbl_planning_work_orders`
-  ADD PRIMARY KEY (`WorkOrderID`),
-  ADD KEY `fk_wo_run` (`RunID`),
-  ADD KEY `fk_wo_station` (`StationID`),
-  ADD KEY `fk_wo_part` (`PartID`);
 
 --
 -- Indexes for table `tbl_plating_compatibility`
@@ -4283,7 +4211,9 @@ ALTER TABLE `tbl_routes`
   ADD KEY `idx_routes_family_id` (`FamilyID`),
   ADD KEY `idx_routes_from_station` (`FromStationID`),
   ADD KEY `idx_routes_to_station` (`ToStationID`),
-  ADD KEY `idx_routes_new_status_id` (`NewStatusID`);
+  ADD KEY `idx_routes_new_status_id` (`NewStatusID`),
+  ADD KEY `idx_family_step` (`FamilyID`,`StepNumber`),
+  ADD KEY `idx_routes_req_status` (`RequiredStatusID`);
 
 --
 -- Indexes for table `tbl_route_overrides`
@@ -4295,7 +4225,9 @@ ALTER TABLE `tbl_route_overrides`
   ADD KEY `FromStationID` (`FromStationID`),
   ADD KEY `ToStationID` (`ToStationID`),
   ADD KEY `idx_override_lookup` (`FamilyID`,`FromStationID`,`ToStationID`,`IsActive`),
-  ADD KEY `idx_overrides_output_status_id` (`OutputStatusID`);
+  ADD KEY `idx_overrides_output_status_id` (`OutputStatusID`),
+  ADD KEY `idx_family_step` (`FamilyID`,`StepNumber`),
+  ADD KEY `idx_overrides_req_status` (`RequiredStatusID`);
 
 --
 -- Indexes for table `tbl_sales_orders`
@@ -4678,18 +4610,6 @@ ALTER TABLE `tbl_planning_capacity_override`
   MODIFY `OverrideID` int(11) NOT NULL AUTO_INCREMENT;
 
 --
--- AUTO_INCREMENT for table `tbl_planning_mrp_results`
---
-ALTER TABLE `tbl_planning_mrp_results`
-  MODIFY `ResultID` int(11) NOT NULL AUTO_INCREMENT;
-
---
--- AUTO_INCREMENT for table `tbl_planning_mrp_run`
---
-ALTER TABLE `tbl_planning_mrp_run`
-  MODIFY `RunID` int(11) NOT NULL AUTO_INCREMENT;
-
---
 -- AUTO_INCREMENT for table `tbl_planning_plating_groups`
 --
 ALTER TABLE `tbl_planning_plating_groups`
@@ -4700,12 +4620,6 @@ ALTER TABLE `tbl_planning_plating_groups`
 --
 ALTER TABLE `tbl_planning_station_capacity_rules`
   MODIFY `RuleID` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=13;
-
---
--- AUTO_INCREMENT for table `tbl_planning_work_orders`
---
-ALTER TABLE `tbl_planning_work_orders`
-  MODIFY `WorkOrderID` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `tbl_plating_events_log`
@@ -5209,18 +5123,6 @@ ALTER TABLE `tbl_planning_capacity_override`
   ADD CONSTRAINT `FK_planning_override_user` FOREIGN KEY (`LastUpdatedBy`) REFERENCES `tbl_users` (`UserID`) ON DELETE SET NULL;
 
 --
--- Constraints for table `tbl_planning_mrp_results`
---
-ALTER TABLE `tbl_planning_mrp_results`
-  ADD CONSTRAINT `fk_mrp_result_run` FOREIGN KEY (`RunID`) REFERENCES `tbl_planning_mrp_run` (`RunID`) ON DELETE CASCADE;
-
---
--- Constraints for table `tbl_planning_mrp_run`
---
-ALTER TABLE `tbl_planning_mrp_run`
-  ADD CONSTRAINT `fk_mrp_run_user` FOREIGN KEY (`RunByUserID`) REFERENCES `tbl_users` (`UserID`) ON DELETE SET NULL;
-
---
 -- Constraints for table `tbl_planning_part_to_group`
 --
 ALTER TABLE `tbl_planning_part_to_group`
@@ -5241,14 +5143,6 @@ ALTER TABLE `tbl_planning_station_capacity_rules`
 ALTER TABLE `tbl_planning_vibration_incompatibility`
   ADD CONSTRAINT `fk_vib_incompatible_part` FOREIGN KEY (`IncompatiblePartID`) REFERENCES `tbl_parts` (`PartID`) ON DELETE CASCADE,
   ADD CONSTRAINT `fk_vib_primary_part` FOREIGN KEY (`PrimaryPartID`) REFERENCES `tbl_parts` (`PartID`) ON DELETE CASCADE;
-
---
--- Constraints for table `tbl_planning_work_orders`
---
-ALTER TABLE `tbl_planning_work_orders`
-  ADD CONSTRAINT `fk_wo_part` FOREIGN KEY (`PartID`) REFERENCES `tbl_parts` (`PartID`),
-  ADD CONSTRAINT `fk_wo_run` FOREIGN KEY (`RunID`) REFERENCES `tbl_planning_mrp_run` (`RunID`) ON DELETE CASCADE,
-  ADD CONSTRAINT `fk_wo_station` FOREIGN KEY (`StationID`) REFERENCES `tbl_stations` (`StationID`);
 
 --
 -- Constraints for table `tbl_plating_compatibility`
@@ -5380,6 +5274,7 @@ ALTER TABLE `tbl_rolling_log_entries`
 --
 ALTER TABLE `tbl_routes`
   ADD CONSTRAINT `fk_route_new_status` FOREIGN KEY (`NewStatusID`) REFERENCES `tbl_part_statuses` (`StatusID`) ON DELETE SET NULL ON UPDATE CASCADE,
+  ADD CONSTRAINT `fk_route_req_status` FOREIGN KEY (`RequiredStatusID`) REFERENCES `tbl_part_statuses` (`StatusID`) ON DELETE SET NULL ON UPDATE CASCADE,
   ADD CONSTRAINT `tbl_routes_ibfk_1` FOREIGN KEY (`FamilyID`) REFERENCES `tbl_part_families` (`FamilyID`) ON DELETE CASCADE ON UPDATE CASCADE,
   ADD CONSTRAINT `tbl_routes_ibfk_2` FOREIGN KEY (`FromStationID`) REFERENCES `tbl_stations` (`StationID`) ON DELETE CASCADE ON UPDATE CASCADE,
   ADD CONSTRAINT `tbl_routes_ibfk_3` FOREIGN KEY (`ToStationID`) REFERENCES `tbl_stations` (`StationID`) ON DELETE CASCADE ON UPDATE CASCADE;
@@ -5390,6 +5285,7 @@ ALTER TABLE `tbl_routes`
 ALTER TABLE `tbl_route_overrides`
   ADD CONSTRAINT `fk_override_deviation_optional` FOREIGN KEY (`DeviationID`) REFERENCES `tbl_quality_deviations` (`DeviationID`) ON DELETE SET NULL ON UPDATE CASCADE,
   ADD CONSTRAINT `fk_override_output_status` FOREIGN KEY (`OutputStatusID`) REFERENCES `tbl_part_statuses` (`StatusID`) ON DELETE SET NULL ON UPDATE CASCADE,
+  ADD CONSTRAINT `fk_override_req_status` FOREIGN KEY (`RequiredStatusID`) REFERENCES `tbl_part_statuses` (`StatusID`) ON DELETE SET NULL ON UPDATE CASCADE,
   ADD CONSTRAINT `tbl_route_overrides_ibfk_1` FOREIGN KEY (`FamilyID`) REFERENCES `tbl_part_families` (`FamilyID`) ON DELETE CASCADE ON UPDATE CASCADE,
   ADD CONSTRAINT `tbl_route_overrides_ibfk_2` FOREIGN KEY (`FromStationID`) REFERENCES `tbl_stations` (`StationID`) ON DELETE CASCADE ON UPDATE CASCADE,
   ADD CONSTRAINT `tbl_route_overrides_ibfk_3` FOREIGN KEY (`ToStationID`) REFERENCES `tbl_stations` (`StationID`) ON DELETE CASCADE ON UPDATE CASCADE,
