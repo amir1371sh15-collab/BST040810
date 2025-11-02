@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Nov 01, 2025 at 08:47 AM
+-- Generation Time: Nov 02, 2025 at 12:09 PM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -963,15 +963,15 @@ INSERT INTO `tbl_machines` (`MachineID`, `MachineName`, `MachineType`, `Status`,
 (14, 'رزوه چونزو', 'پیچ سازی', 'Active', NULL),
 (15, 'رزوه کوچک', 'پیچ سازی', 'Active', NULL),
 (17, 'مونتاژ  1', 'مونتاژ', 'Active', 16),
-(18, 'مونتاژ 7', 'مونتاژ', 'Active', 11),
+(18, 'مونتاژ 7', 'مونتاژ بزرگ', 'Active', 11),
 (19, 'مونتاژ 3', 'مونتاژ', 'Active', 16),
 (20, 'مونتاژ 5', 'مونتاژ', 'Active', 16),
 (21, 'مونتاژ 6', 'مونتاژ', 'Active', 16),
 (22, 'مونتاژ 8', 'مونتاژ', 'Active', 16),
 (23, 'مونتاژ 9', 'مونتاژ', 'Active', 16),
-(24, 'مونتاژ 10', 'مونتاژ', 'Not ACTIVE', 16),
-(25, 'مونتاژ 2', 'مونتاژ', 'Active', 11),
-(26, 'مونتاژ 4', 'مونتاژ', 'Active', 11),
+(24, 'مونتاژ 10', 'مونتاژ', 'Active', 16),
+(25, 'مونتاژ 2', 'مونتاژ بزرگ', 'Active', 11),
+(26, 'مونتاژ 4', 'مونتاژ بزرگ', 'Active', 11),
 (27, 'رول کن شماره 1', 'رول کن', 'Active', NULL),
 (28, 'رول کن شماره 2', 'رول کن', 'Active', NULL),
 (29, 'رول کن شماره 3', 'رول کن', 'Active', NULL);
@@ -1469,7 +1469,9 @@ CREATE TABLE `tbl_packaging_configs` (
 --
 
 INSERT INTO `tbl_packaging_configs` (`PackageConfigID`, `SizeID`, `ContainedQuantity`) VALUES
-(5, 54, 600);
+(5, 54, 600),
+(7, 63, 600),
+(8, 48, 2000);
 
 -- --------------------------------------------------------
 
@@ -1540,19 +1542,6 @@ INSERT INTO `tbl_packaging_log_shifts` (`ShiftID`, `PackagingHeaderID`, `Employe
 -- --------------------------------------------------------
 
 --
--- Table structure for table `tbl_packaging_weights`
---
-
-CREATE TABLE `tbl_packaging_weights` (
-  `PackageWeightID` int(11) NOT NULL,
-  `SizeID` int(11) NOT NULL,
-  `ContainedQuantity` int(11) NOT NULL COMMENT 'تعداد محصول در هر کارتن (برای تطابق)',
-  `TotalWeightKG` decimal(10,3) DEFAULT NULL COMMENT 'وزن کل کارتن پر شده (کیلوگرم)'
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='جدول ثبت وزن نهایی کارتن‌های بسته‌بندی شده';
-
--- --------------------------------------------------------
-
---
 -- Table structure for table `tbl_pallet_types`
 --
 
@@ -1581,88 +1570,89 @@ CREATE TABLE `tbl_parts` (
   `PartName` varchar(150) NOT NULL,
   `Description` text DEFAULT NULL,
   `FamilyID` int(11) DEFAULT NULL,
-  `SizeID` int(11) DEFAULT NULL COMMENT 'FK to tbl_part_sizes'
+  `SizeID` int(11) DEFAULT NULL COMMENT 'FK to tbl_part_sizes',
+  `BarrelWeight_Solo_KG` decimal(10,2) DEFAULT NULL COMMENT 'ظرفیت بارل (کیلوگرم) اگر قطعه تنها باشد'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Dumping data for table `tbl_parts`
 --
 
-INSERT INTO `tbl_parts` (`PartID`, `PartCode`, `PartName`, `Description`, `FamilyID`, `SizeID`) VALUES
-(2, 'F1S1-1760262002', 'تسمه کوچک 1/2', '', 1, NULL),
-(3, 'F1S2-1760262003', 'تسمه کوچک 5/8', '', 1, NULL),
-(4, 'F1S3-1760262004', 'تسمه کوچک 3/4', '', 1, NULL),
-(5, 'F1S4-1760262005', 'تسمه کوچک 7/8', '', 1, NULL),
-(6, 'F1S5-1760262006', 'تسمه کوچک 1', '', 1, NULL),
-(7, 'F1S6-1760262007', 'تسمه کوچک 1016', '', 1, NULL),
-(8, 'F1S7-1760262008', 'تسمه کوچک 1319', '', 1, NULL),
-(9, 'F1S8-1760262009', 'تسمه کوچک 1825', '', 1, NULL),
-(10, 'F1S9-1760262010', 'تسمه کوچک 1016-هلالی', '', 1, NULL),
-(11, 'F1S10-1760262011', 'تسمه کوچک 1319- هلالی', '', 1, NULL),
-(12, 'F1S11-1760262012', 'تسمه کوچک 1825-هلالی', '', 1, NULL),
-(13, 'F11S12-1760262013', 'تسمه بزرگ دنده شده 1-1/16', '', 11, NULL),
-(14, 'F11S13-1760262014', 'تسمه بزرگ دنده شده 1-1/4', '', 11, NULL),
-(15, 'F11S14-1760262015', 'تسمه بزرگ دنده شده 1-1/2', '', 11, NULL),
-(16, 'F11S15-1760262016', 'تسمه بزرگ دنده شده 1-3/4', '', 11, NULL),
-(17, 'F12S16-1760262017', 'تسمه بزرگ بدون دنده 1-7/8', '', 12, NULL),
-(18, 'F12S17-1760262018', 'تسمه بزرگ بدون دنده 2', '', 12, NULL),
-(19, 'F12S18-1760262019', 'تسمه بزرگ بدون دنده 2-1/4', '', 12, NULL),
-(20, 'F11S19-1760262020', 'تسمه بزرگ دنده شده 2-1/2', '', 11, NULL),
-(21, 'F12S20-1760262021', 'تسمه بزرگ بدون دنده 2-7/8', '', 12, NULL),
-(22, 'F12S21-1760262022', 'تسمه بزرگ بدون دنده 3', '', 12, NULL),
-(23, 'F12S22-1760262023', 'تسمه بزرگ بدون دنده 3-1/4', '', 12, NULL),
-(24, 'F12S23-1760262024', 'تسمه بزرگ بدون دنده 3-3/4', '', 12, NULL),
-(25, 'F12S24-1760262025', 'تسمه بزرگ بدون دنده 4', '', 12, NULL),
-(26, 'F12S25-1760262026', 'تسمه بزرگ بدون دنده 4-5/16', '', 12, NULL),
-(27, 'F12S26-1760262027', 'تسمه بزرگ بدون دنده 5', '', 12, NULL),
-(28, 'F12S27-1760262028', 'تسمه بزرگ بدون دنده 5-1/2', '', 12, NULL),
-(29, 'F12S28-1760262029', 'تسمه بزرگ بدون دنده 6', '', 12, NULL),
-(30, 'F12S29-1760262030', 'تسمه بزرگ بدون دنده 6-1/2', '', 12, NULL),
-(31, 'F12S30-1760262031', 'تسمه بزرگ بدون دنده 7', '', 12, NULL),
-(32, 'F12S31-1760262032', 'تسمه بزرگ بدون دنده 8', '', 12, NULL),
-(33, 'F12S32-1760262033', 'تسمه بزرگ بدون دنده 8-1/2', '', 12, NULL),
-(34, 'F2S33-1760262034', 'محفظه کوچک پایه کوتاه 0/6', '', 2, NULL),
-(35, 'F2S34-1760262035', 'محفظه کوچک پایه کوتاه 0/7', '', 2, NULL),
-(36, 'F2S35-1760262036', 'محفظه کوچک پایه بلند 0/7', '', 2, NULL),
-(37, 'F10S36-1760262037', 'محفظه بزرگ پایه کوتاه 0/8', '', 10, NULL),
-(38, 'F10S37-1760262038', 'محفظه بزرگ پایه کوتاه 1', '', 10, NULL),
-(39, 'F10S38-1760262039', 'محفظه بزرگ پایه بلند 1', '', 10, NULL),
-(40, 'F4S39-1760262040', 'پیچ بزرگ دوسو', '', 4, NULL),
-(41, 'F4S40-1760262041', 'پیچ بزرگ دو سو چهارسو', '', 4, NULL),
-(42, 'F6S41-1760262042', 'پیچ کوچک دوسو', '', 6, NULL),
-(43, 'F6S42-1760262043', 'پیچ کوچک دو سو چهارسو', '', 6, NULL),
-(44, 'F9S43-1760262044', 'بست کوچک 1/2', '', 9, NULL),
-(45, 'F9S44-1760262045', 'بست کوچک 5/8', '', 9, NULL),
-(46, 'F9S45-1760262046', 'بست کوچک 3/4', '', 9, NULL),
-(47, 'F9S46-1760262047', 'بست کوچک 7/8', '', 9, NULL),
-(48, 'F9S47-1760262048', 'بست کوچک 1', '', 9, NULL),
-(49, 'F9S48-1760262049', 'بست کوچک 1016', '', 9, NULL),
-(50, 'F9S49-1760262050', 'بست کوچک 1319', '', 9, NULL),
-(51, 'F9S50-1760262051', 'بست کوچک 1825', '', 9, NULL),
-(52, 'F9S51-1760262052', 'بست کوچک 1016-هلالی', '', 9, NULL),
-(53, 'F9S52-1760262053', 'بست کوچک 1319- هلالی', '', 9, NULL),
-(54, 'F9S53-1760262054', 'بست کوچک 1825-هلالی', '', 9, NULL),
-(55, 'F3S54-1760262055', 'بست بزرگ 1-1/16', '', 3, NULL),
-(56, 'F3S55-1760262056', 'بست بزرگ 1-1/4', '', 3, NULL),
-(57, 'F3S56-1760262057', 'بست بزرگ 1-1/2', '', 3, NULL),
-(58, 'F3S57-1760262058', 'بست بزرگ 1-3/4', '', 3, NULL),
-(59, 'F3S58-1760262059', 'بست بزرگ 1-7/8', '', 3, NULL),
-(60, 'F3S59-1760262060', 'بست بزرگ 2', '', 3, NULL),
-(61, 'F3S60-1760262061', 'بست بزرگ 2-1/4', '', 3, NULL),
-(62, 'F3S61-1760262062', 'بست بزرگ 2-1/2', '', 3, NULL),
-(63, 'F3S62-1760262063', 'بست بزرگ 2-7/8', '', 3, NULL),
-(64, 'F3S63-1760262064', 'بست بزرگ 3', '', 3, NULL),
-(65, 'F3S64-1760262065', 'بست بزرگ 3-1/4', '', 3, NULL),
-(66, 'F3S65-1760262066', 'بست بزرگ 3-3/4', '', 3, NULL),
-(67, 'F3S66-1760262067', 'بست بزرگ 4', '', 3, NULL),
-(68, 'F3S67-1760262068', 'بست بزرگ 4-5/16', '', 3, NULL),
-(69, 'F3S68-1760262069', 'بست بزرگ 5', '', 3, NULL),
-(70, 'F3S69-1760262070', 'بست بزرگ 5-1/2', '', 3, NULL),
-(71, 'F3S70-1760262071', 'بست بزرگ 6', '', 3, NULL),
-(72, 'F3S71-1760262072', 'بست بزرگ 6-1/2', '', 3, NULL),
-(73, 'F3S72-1760262073', 'بست بزرگ 7', '', 3, NULL),
-(74, 'F3S73-1760262074', 'بست بزرگ 8', '', 3, NULL),
-(75, 'F3S74-1760262075', 'بست بزرگ 8-1/2', '', 3, NULL);
+INSERT INTO `tbl_parts` (`PartID`, `PartCode`, `PartName`, `Description`, `FamilyID`, `SizeID`, `BarrelWeight_Solo_KG`) VALUES
+(2, 'F1S1-1760262002', 'تسمه کوچک 1/2', '', 1, NULL, NULL),
+(3, 'F1S2-1760262003', 'تسمه کوچک 5/8', '', 1, NULL, NULL),
+(4, 'F1S3-1760262004', 'تسمه کوچک 3/4', '', 1, NULL, NULL),
+(5, 'F1S4-1760262005', 'تسمه کوچک 7/8', '', 1, NULL, NULL),
+(6, 'F1S5-1760262006', 'تسمه کوچک 1', '', 1, NULL, NULL),
+(7, 'F1S6-1760262007', 'تسمه کوچک 1016', '', 1, NULL, NULL),
+(8, 'F1S7-1760262008', 'تسمه کوچک 1319', '', 1, NULL, NULL),
+(9, 'F1S8-1760262009', 'تسمه کوچک 1825', '', 1, NULL, NULL),
+(10, 'F1S9-1760262010', 'تسمه کوچک 1016-هلالی', '', 1, NULL, NULL),
+(11, 'F1S10-1760262011', 'تسمه کوچک 1319- هلالی', '', 1, NULL, NULL),
+(12, 'F1S11-1760262012', 'تسمه کوچک 1825-هلالی', '', 1, NULL, NULL),
+(13, 'F11S12-1760262013', 'تسمه بزرگ دنده شده 1-1/16', '', 11, NULL, NULL),
+(14, 'F11S13-1760262014', 'تسمه بزرگ دنده شده 1-1/4', '', 11, NULL, NULL),
+(15, 'F11S14-1760262015', 'تسمه بزرگ دنده شده 1-1/2', '', 11, NULL, NULL),
+(16, 'F11S15-1760262016', 'تسمه بزرگ دنده شده 1-3/4', '', 11, NULL, NULL),
+(17, 'F12S16-1760262017', 'تسمه بزرگ بدون دنده 1-7/8', '', 12, NULL, NULL),
+(18, 'F12S17-1760262018', 'تسمه بزرگ بدون دنده 2', '', 12, NULL, NULL),
+(19, 'F12S18-1760262019', 'تسمه بزرگ بدون دنده 2-1/4', '', 12, NULL, NULL),
+(20, 'F11S19-1760262020', 'تسمه بزرگ دنده شده 2-1/2', '', 11, NULL, NULL),
+(21, 'F12S20-1760262021', 'تسمه بزرگ بدون دنده 2-7/8', '', 12, NULL, NULL),
+(22, 'F12S21-1760262022', 'تسمه بزرگ بدون دنده 3', '', 12, NULL, NULL),
+(23, 'F12S22-1760262023', 'تسمه بزرگ بدون دنده 3-1/4', '', 12, NULL, NULL),
+(24, 'F12S23-1760262024', 'تسمه بزرگ بدون دنده 3-3/4', '', 12, NULL, NULL),
+(25, 'F12S24-1760262025', 'تسمه بزرگ بدون دنده 4', '', 12, NULL, NULL),
+(26, 'F12S25-1760262026', 'تسمه بزرگ بدون دنده 4-5/16', '', 12, NULL, NULL),
+(27, 'F12S26-1760262027', 'تسمه بزرگ بدون دنده 5', '', 12, NULL, NULL),
+(28, 'F12S27-1760262028', 'تسمه بزرگ بدون دنده 5-1/2', '', 12, NULL, NULL),
+(29, 'F12S28-1760262029', 'تسمه بزرگ بدون دنده 6', '', 12, NULL, NULL),
+(30, 'F12S29-1760262030', 'تسمه بزرگ بدون دنده 6-1/2', '', 12, NULL, NULL),
+(31, 'F12S30-1760262031', 'تسمه بزرگ بدون دنده 7', '', 12, NULL, NULL),
+(32, 'F12S31-1760262032', 'تسمه بزرگ بدون دنده 8', '', 12, NULL, NULL),
+(33, 'F12S32-1760262033', 'تسمه بزرگ بدون دنده 8-1/2', '', 12, NULL, NULL),
+(34, 'F2S33-1760262034', 'محفظه کوچک پایه کوتاه 0/6', '', 2, NULL, NULL),
+(35, 'F2S34-1760262035', 'محفظه کوچک پایه کوتاه 0/7', '', 2, NULL, NULL),
+(36, 'F2S35-1760262036', 'محفظه کوچک پایه بلند 0/7', '', 2, NULL, NULL),
+(37, 'F10S36-1760262037', 'محفظه بزرگ پایه کوتاه 0/8', '', 10, NULL, NULL),
+(38, 'F10S37-1760262038', 'محفظه بزرگ پایه کوتاه 1', '', 10, NULL, NULL),
+(39, 'F10S38-1760262039', 'محفظه بزرگ پایه بلند 1', '', 10, NULL, NULL),
+(40, 'F4S39-1760262040', 'پیچ بزرگ دوسو', '', 4, NULL, NULL),
+(41, 'F4S40-1760262041', 'پیچ بزرگ دو سو چهارسو', '', 4, NULL, NULL),
+(42, 'F6S41-1760262042', 'پیچ کوچک دوسو', '', 6, NULL, NULL),
+(43, 'F6S42-1760262043', 'پیچ کوچک دو سو چهارسو', '', 6, NULL, NULL),
+(44, 'F9S43-1760262044', 'بست کوچک 1/2', '', 9, NULL, NULL),
+(45, 'F9S44-1760262045', 'بست کوچک 5/8', '', 9, NULL, NULL),
+(46, 'F9S45-1760262046', 'بست کوچک 3/4', '', 9, NULL, NULL),
+(47, 'F9S46-1760262047', 'بست کوچک 7/8', '', 9, NULL, NULL),
+(48, 'F9S47-1760262048', 'بست کوچک 1', '', 9, NULL, NULL),
+(49, 'F9S48-1760262049', 'بست کوچک 1016', '', 9, NULL, NULL),
+(50, 'F9S49-1760262050', 'بست کوچک 1319', '', 9, NULL, NULL),
+(51, 'F9S50-1760262051', 'بست کوچک 1825', '', 9, NULL, NULL),
+(52, 'F9S51-1760262052', 'بست کوچک 1016-هلالی', '', 9, NULL, NULL),
+(53, 'F9S52-1760262053', 'بست کوچک 1319- هلالی', '', 9, NULL, NULL),
+(54, 'F9S53-1760262054', 'بست کوچک 1825-هلالی', '', 9, NULL, NULL),
+(55, 'F3S54-1760262055', 'بست بزرگ 1-1/16', '', 3, NULL, 50.00),
+(56, 'F3S55-1760262056', 'بست بزرگ 1-1/4', '', 3, NULL, NULL),
+(57, 'F3S56-1760262057', 'بست بزرگ 1-1/2', '', 3, NULL, NULL),
+(58, 'F3S57-1760262058', 'بست بزرگ 1-3/4', '', 3, NULL, 38.00),
+(59, 'F3S58-1760262059', 'بست بزرگ 1-7/8', '', 3, NULL, NULL),
+(60, 'F3S59-1760262060', 'بست بزرگ 2', '', 3, NULL, NULL),
+(61, 'F3S60-1760262061', 'بست بزرگ 2-1/4', '', 3, NULL, NULL),
+(62, 'F3S61-1760262062', 'بست بزرگ 2-1/2', '', 3, NULL, NULL),
+(63, 'F3S62-1760262063', 'بست بزرگ 2-7/8', '', 3, NULL, NULL),
+(64, 'F3S63-1760262064', 'بست بزرگ 3', '', 3, NULL, NULL),
+(65, 'F3S64-1760262065', 'بست بزرگ 3-1/4', '', 3, NULL, NULL),
+(66, 'F3S65-1760262066', 'بست بزرگ 3-3/4', '', 3, NULL, NULL),
+(67, 'F3S66-1760262067', 'بست بزرگ 4', '', 3, NULL, NULL),
+(68, 'F3S67-1760262068', 'بست بزرگ 4-5/16', '', 3, NULL, NULL),
+(69, 'F3S68-1760262069', 'بست بزرگ 5', '', 3, NULL, NULL),
+(70, 'F3S69-1760262070', 'بست بزرگ 5-1/2', '', 3, NULL, NULL),
+(71, 'F3S70-1760262071', 'بست بزرگ 6', '', 3, NULL, NULL),
+(72, 'F3S71-1760262072', 'بست بزرگ 6-1/2', '', 3, NULL, NULL),
+(73, 'F3S72-1760262073', 'بست بزرگ 7', '', 3, NULL, NULL),
+(74, 'F3S73-1760262074', 'بست بزرگ 8', '', 3, NULL, NULL),
+(75, 'F3S74-1760262075', 'بست بزرگ 8-1/2', '', 3, NULL, NULL);
 
 -- --------------------------------------------------------
 
@@ -1721,7 +1711,11 @@ CREATE TABLE `tbl_part_raw_materials` (
 
 INSERT INTO `tbl_part_raw_materials` (`PartBomID`, `PartID`, `RawMaterialItemID`, `QuantityGram`) VALUES
 (1, 43, 2, 3.300),
-(2, 35, 1, 1.700);
+(2, 35, 1, 1.700),
+(3, 9, 1, 1.700),
+(4, 40, 4, 7.500),
+(8, 7, 5, 1.000),
+(9, 13, 3, 9.000);
 
 -- --------------------------------------------------------
 
@@ -1732,96 +1726,97 @@ INSERT INTO `tbl_part_raw_materials` (`PartBomID`, `PartID`, `RawMaterialItemID`
 CREATE TABLE `tbl_part_sizes` (
   `SizeID` int(11) NOT NULL,
   `FamilyID` int(11) NOT NULL,
-  `SizeName` varchar(50) NOT NULL
+  `SizeName` varchar(50) NOT NULL,
+  `PlatingMustBeMixed` tinyint(1) NOT NULL DEFAULT 0 COMMENT 'آیا این سایز باید حتما ترکیبی آبکاری شود؟'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Dumping data for table `tbl_part_sizes`
 --
 
-INSERT INTO `tbl_part_sizes` (`SizeID`, `FamilyID`, `SizeName`) VALUES
-(5, 1, '1'),
-(1, 1, '1/2'),
-(6, 1, '1016'),
-(9, 1, '1016-هلالی'),
-(7, 1, '1319'),
-(10, 1, '1319- هلالی'),
-(8, 1, '1825'),
-(11, 1, '1825-هلالی'),
-(3, 1, '3/4'),
-(2, 1, '5/8'),
-(4, 1, '7/8'),
-(35, 2, 'پایه بلند 0/7'),
-(33, 2, 'پایه کوتاه 0/6'),
-(34, 2, 'پایه کوتاه 0/7'),
-(54, 3, '1-1/16'),
-(56, 3, '1-1/2'),
-(55, 3, '1-1/4'),
-(57, 3, '1-3/4'),
-(58, 3, '1-7/8'),
-(59, 3, '2'),
-(61, 3, '2-1/2'),
-(60, 3, '2-1/4'),
-(62, 3, '2-7/8'),
-(63, 3, '3'),
-(64, 3, '3-1/4'),
-(65, 3, '3-3/4'),
-(66, 3, '4'),
-(67, 3, '4-5/16'),
-(68, 3, '5'),
-(69, 3, '5-1/2'),
-(70, 3, '6'),
-(71, 3, '6-1/2'),
-(72, 3, '7'),
-(73, 3, '8'),
-(74, 3, '8-1/2'),
-(40, 4, 'دو سو چهارسو'),
-(39, 4, 'دوسو'),
-(42, 6, 'دو سو چهارسو'),
-(41, 6, 'دوسو'),
-(47, 9, '1'),
-(43, 9, '1/2'),
-(48, 9, '1016'),
-(51, 9, '1016-هلالی'),
-(49, 9, '1319'),
-(52, 9, '1319- هلالی'),
-(50, 9, '1825'),
-(53, 9, '1825-هلالی'),
-(45, 9, '3/4'),
-(44, 9, '5/8'),
-(46, 9, '7/8'),
-(38, 10, 'پایه بلند 1'),
-(36, 10, 'پایه کوتاه 0/8'),
-(37, 10, 'پایه کوتاه 1'),
-(12, 11, '1-1/16'),
-(14, 11, '1-1/2'),
-(13, 11, '1-1/4'),
-(15, 11, '1-3/4'),
-(19, 11, '2-1/2'),
-(16, 12, '1-7/8'),
-(17, 12, '2'),
-(18, 12, '2-1/4'),
-(20, 12, '2-7/8'),
-(21, 12, '3'),
-(22, 12, '3-1/4'),
-(23, 12, '3-3/4'),
-(24, 12, '4'),
-(25, 12, '4-5/16'),
-(26, 12, '5'),
-(27, 12, '5-1/2'),
-(28, 12, '6'),
-(29, 12, '6-1/2'),
-(30, 12, '7'),
-(31, 12, '8'),
-(32, 12, '8-1/2'),
-(78, 13, 'بزرگ دو سو  چهار سو کله زده شده'),
-(82, 13, 'بزرگ دو سو  چهار سو گلویی خورده'),
-(76, 13, 'بزرگ دو سو کله زده شده'),
-(80, 13, 'بزرگ دو سو گلویی شده'),
-(77, 13, 'کوچک دو سو  چهار سو کله زده شده'),
-(81, 13, 'کوچک دو سو  چهار سو گلویی شده'),
-(75, 13, 'کوچک دو سو کله زده شده'),
-(79, 13, 'کوچک دو سو گلویی شده');
+INSERT INTO `tbl_part_sizes` (`SizeID`, `FamilyID`, `SizeName`, `PlatingMustBeMixed`) VALUES
+(1, 1, '1/2', 0),
+(2, 1, '5/8', 0),
+(3, 1, '3/4', 0),
+(4, 1, '7/8', 0),
+(5, 1, '1', 0),
+(6, 1, '1016', 0),
+(7, 1, '1319', 0),
+(8, 1, '1825', 0),
+(9, 1, '1016-هلالی', 0),
+(10, 1, '1319- هلالی', 0),
+(11, 1, '1825-هلالی', 0),
+(12, 11, '1-1/16', 0),
+(13, 11, '1-1/4', 0),
+(14, 11, '1-1/2', 0),
+(15, 11, '1-3/4', 0),
+(16, 12, '1-7/8', 0),
+(17, 12, '2', 0),
+(18, 12, '2-1/4', 0),
+(19, 11, '2-1/2', 0),
+(20, 12, '2-7/8', 0),
+(21, 12, '3', 0),
+(22, 12, '3-1/4', 0),
+(23, 12, '3-3/4', 0),
+(24, 12, '4', 0),
+(25, 12, '4-5/16', 0),
+(26, 12, '5', 0),
+(27, 12, '5-1/2', 0),
+(28, 12, '6', 0),
+(29, 12, '6-1/2', 0),
+(30, 12, '7', 0),
+(31, 12, '8', 0),
+(32, 12, '8-1/2', 0),
+(33, 2, 'پایه کوتاه 0/6', 0),
+(34, 2, 'پایه کوتاه 0/7', 0),
+(35, 2, 'پایه بلند 0/7', 0),
+(36, 10, 'پایه کوتاه 0/8', 0),
+(37, 10, 'پایه کوتاه 1', 0),
+(38, 10, 'پایه بلند 1', 0),
+(39, 4, 'دوسو', 0),
+(40, 4, 'دو سو چهارسو', 0),
+(41, 6, 'دوسو', 0),
+(42, 6, 'دو سو چهارسو', 0),
+(43, 9, '1/2', 0),
+(44, 9, '5/8', 0),
+(45, 9, '3/4', 0),
+(46, 9, '7/8', 0),
+(47, 9, '1', 0),
+(48, 9, '1016', 0),
+(49, 9, '1319', 0),
+(50, 9, '1825', 0),
+(51, 9, '1016-هلالی', 0),
+(52, 9, '1319- هلالی', 0),
+(53, 9, '1825-هلالی', 0),
+(54, 3, '1-1/16', 0),
+(55, 3, '1-1/4', 0),
+(56, 3, '1-1/2', 0),
+(57, 3, '1-3/4', 0),
+(58, 3, '1-7/8', 0),
+(59, 3, '2', 0),
+(60, 3, '2-1/4', 0),
+(61, 3, '2-1/2', 0),
+(62, 3, '2-7/8', 0),
+(63, 3, '3', 0),
+(64, 3, '3-1/4', 0),
+(65, 3, '3-3/4', 0),
+(66, 3, '4', 0),
+(67, 3, '4-5/16', 0),
+(68, 3, '5', 1),
+(69, 3, '5-1/2', 1),
+(70, 3, '6', 1),
+(71, 3, '6-1/2', 1),
+(72, 3, '7', 1),
+(73, 3, '8', 1),
+(74, 3, '8-1/2', 1),
+(75, 13, 'کوچک دو سو کله زده شده', 0),
+(76, 13, 'بزرگ دو سو کله زده شده', 0),
+(77, 13, 'کوچک دو سو  چهار سو کله زده شده', 0),
+(78, 13, 'بزرگ دو سو  چهار سو کله زده شده', 0),
+(79, 13, 'کوچک دو سو گلویی شده', 0),
+(80, 13, 'بزرگ دو سو گلویی شده', 0),
+(81, 13, 'کوچک دو سو  چهار سو گلویی شده', 0),
+(82, 13, 'بزرگ دو سو  چهار سو گلویی خورده', 0);
 
 -- --------------------------------------------------------
 
@@ -1939,6 +1934,304 @@ INSERT INTO `tbl_part_weights` (`PartWeightID`, `PartID`, `WeightGR`, `Effective
 (64, 72, 46.800, '2024-01-01', NULL),
 (65, 73, 48.000, '2024-01-01', NULL),
 (66, 74, 56.900, '2024-01-01', NULL);
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `tbl_planning_batch_compatibility`
+--
+
+CREATE TABLE `tbl_planning_batch_compatibility` (
+  `CompatibilityID` int(11) NOT NULL,
+  `PrimaryPartID` int(11) NOT NULL COMMENT 'FK to tbl_parts (قطعه اصلی)',
+  `CompatiblePartID` int(11) NOT NULL COMMENT 'FK to tbl_parts (قطعه‌ای که میتواند اضافه شود)',
+  `PrimaryPartWeight_KG` decimal(10,2) DEFAULT NULL COMMENT 'وزن قطعه اصلی در این ترکیب',
+  `CompatiblePartWeight_KG` decimal(10,2) DEFAULT NULL COMMENT 'وزن قطعه سازگار در این ترکیب'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='تعریف اینکه کدام قطعات می‌توانند با هم در یک بچ باشند';
+
+--
+-- Dumping data for table `tbl_planning_batch_compatibility`
+--
+
+INSERT INTO `tbl_planning_batch_compatibility` (`CompatibilityID`, `PrimaryPartID`, `CompatiblePartID`, `PrimaryPartWeight_KG`, `CompatiblePartWeight_KG`) VALUES
+(9, 55, 69, NULL, NULL),
+(10, 69, 55, NULL, NULL),
+(11, 55, 70, NULL, NULL),
+(12, 70, 55, NULL, NULL),
+(13, 55, 71, NULL, NULL),
+(14, 71, 55, NULL, NULL),
+(15, 55, 72, NULL, NULL),
+(16, 72, 55, NULL, NULL),
+(17, 55, 73, NULL, NULL),
+(18, 73, 55, NULL, NULL),
+(19, 55, 74, NULL, NULL),
+(20, 74, 55, NULL, NULL),
+(21, 55, 75, NULL, NULL),
+(22, 75, 55, NULL, NULL),
+(23, 58, 74, 38.00, 2.00),
+(24, 74, 58, 2.00, 38.00);
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `tbl_planning_capacity_override`
+--
+
+CREATE TABLE `tbl_planning_capacity_override` (
+  `OverrideID` int(11) NOT NULL,
+  `PlanningDate` date NOT NULL,
+  `StationID` int(11) NOT NULL,
+  `SuggestedCapacity` decimal(12,2) DEFAULT NULL COMMENT 'ظرفیت محاسبه شده توسط سیستم',
+  `FinalCapacity` decimal(12,2) NOT NULL COMMENT 'ظرفیت نهایی تایید شده توسط برنامه‌ریز',
+  `CapacityUnit` varchar(20) NOT NULL,
+  `LastUpdated` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `LastUpdatedBy` int(11) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `tbl_planning_mrp_results`
+--
+
+CREATE TABLE `tbl_planning_mrp_results` (
+  `ResultID` int(11) NOT NULL,
+  `RunID` int(11) NOT NULL,
+  `ItemType` enum('محصول نهایی','قطعه','ماده اولیه') NOT NULL,
+  `ItemID` varchar(50) NOT NULL COMMENT 'PartID or RawMaterialID',
+  `ItemName` varchar(255) NOT NULL,
+  `ItemStatusID` int(11) DEFAULT NULL,
+  `GrossRequirement` decimal(12,2) NOT NULL,
+  `AvailableSupply` decimal(12,2) NOT NULL,
+  `NetRequirement` decimal(12,2) NOT NULL,
+  `Unit` varchar(10) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `tbl_planning_mrp_run`
+--
+
+CREATE TABLE `tbl_planning_mrp_run` (
+  `RunID` int(11) NOT NULL,
+  `RunDate` timestamp NOT NULL DEFAULT current_timestamp(),
+  `RunByUserID` int(11) DEFAULT NULL,
+  `SelectedOrderIDs` text DEFAULT NULL,
+  `Status` enum('Pending','Completed') NOT NULL DEFAULT 'Pending'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `tbl_planning_part_to_group`
+--
+
+CREATE TABLE `tbl_planning_part_to_group` (
+  `PartID` int(11) NOT NULL COMMENT 'FK to tbl_parts',
+  `GroupID` int(11) NOT NULL COMMENT 'FK to tbl_planning_plating_groups'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='اتصال قطعات به گروه‌های آبکاری مربوطه';
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `tbl_planning_plating_groups`
+--
+
+CREATE TABLE `tbl_planning_plating_groups` (
+  `GroupID` int(11) NOT NULL,
+  `GroupName` varchar(255) NOT NULL COMMENT 'نام گروه (مثلا: روی-سیانوری، نیکل)',
+  `SetupTimeMinutes` int(11) DEFAULT 0 COMMENT 'زمان لازم برای ستاپ/تغییر به این گروه (دقیقه)'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='گروه‌های آبکاری برای مدیریت بچینگ و زمان ستاپ';
+
+--
+-- Dumping data for table `tbl_planning_plating_groups`
+--
+
+INSERT INTO `tbl_planning_plating_groups` (`GroupID`, `GroupName`, `SetupTimeMinutes`) VALUES
+(1, 'تسمه 5/8', 240);
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `tbl_planning_station_capacity_rules`
+--
+
+CREATE TABLE `tbl_planning_station_capacity_rules` (
+  `RuleID` int(11) NOT NULL,
+  `StationID` int(11) NOT NULL,
+  `MachineID` int(11) DEFAULT NULL,
+  `PartID` int(11) DEFAULT NULL,
+  `CalculationMethod` enum('FixedAmount','ManHours','OEE','PlatingManHours','AssemblySmall','AssemblyLarge','Rolling','Packaging','Gearing') NOT NULL,
+  `StandardValue` decimal(10,2) DEFAULT NULL COMMENT 'مقدار ثابت (برای متد FixedAmount) یا مقدار پیش‌فرض',
+  `FinalCapacity` decimal(12,2) DEFAULT NULL COMMENT 'ظرفیت نهایی تایید شده توسط کاربر',
+  `CapacityUnit` varchar(20) NOT NULL COMMENT 'واحد ظرفیت (KG/Day, Pieces/Day, ManHours)',
+  `Notes` text DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci;
+
+--
+-- Dumping data for table `tbl_planning_station_capacity_rules`
+--
+
+INSERT INTO `tbl_planning_station_capacity_rules` (`RuleID`, `StationID`, `MachineID`, `PartID`, `CalculationMethod`, `StandardValue`, `FinalCapacity`, `CapacityUnit`, `Notes`) VALUES
+(1, 12, NULL, NULL, 'AssemblySmall', 70000.00, NULL, 'Pieces/Day', ''),
+(3, 3, NULL, 55, 'Gearing', NULL, 30.00, 'KG/Day', NULL),
+(4, 2, 2, NULL, 'OEE', 80.00, 480.00, 'Pieces/Day', NULL),
+(5, 2, 1, NULL, 'OEE', 80.00, 480.00, 'Pieces/Day', NULL),
+(6, 2, 3, NULL, 'OEE', 80.00, 480.00, 'Pieces/Day', NULL),
+(7, 2, 4, NULL, 'OEE', 80.00, 480.00, 'Pieces/Day', NULL),
+(8, 2, 5, NULL, 'OEE', 80.00, 480.00, 'Pieces/Day', NULL),
+(9, 2, 6, NULL, 'OEE', 80.00, 480.00, 'Pieces/Day', NULL),
+(10, 2, 8, NULL, 'OEE', 80.00, 480.00, 'Pieces/Day', NULL),
+(11, 2, 7, NULL, 'OEE', 80.00, 480.00, 'Pieces/Day', NULL),
+(12, 10, NULL, NULL, 'Packaging', NULL, 20.00, 'Cartons/Day', NULL);
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `tbl_planning_vibration_incompatibility`
+--
+
+CREATE TABLE `tbl_planning_vibration_incompatibility` (
+  `PrimaryPartID` int(11) NOT NULL COMMENT 'FK to tbl_parts (قطعه اصلی)',
+  `IncompatiblePartID` int(11) NOT NULL COMMENT 'FK to tbl_parts (قطعه ناسازگار)'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci;
+
+--
+-- Dumping data for table `tbl_planning_vibration_incompatibility`
+--
+
+INSERT INTO `tbl_planning_vibration_incompatibility` (`PrimaryPartID`, `IncompatiblePartID`) VALUES
+(2, 3),
+(2, 4),
+(2, 5),
+(2, 6),
+(2, 7),
+(2, 8),
+(2, 9),
+(2, 10),
+(2, 11),
+(2, 12),
+(3, 2),
+(3, 4),
+(3, 5),
+(3, 6),
+(3, 7),
+(3, 8),
+(3, 9),
+(3, 10),
+(3, 11),
+(3, 12),
+(4, 2),
+(4, 3),
+(4, 5),
+(4, 6),
+(4, 7),
+(4, 8),
+(4, 9),
+(4, 10),
+(4, 11),
+(4, 12),
+(5, 2),
+(5, 3),
+(5, 4),
+(5, 6),
+(5, 7),
+(5, 8),
+(5, 9),
+(5, 10),
+(5, 11),
+(5, 12),
+(6, 2),
+(6, 3),
+(6, 4),
+(6, 5),
+(6, 7),
+(6, 8),
+(6, 9),
+(6, 10),
+(6, 11),
+(6, 12),
+(7, 2),
+(7, 3),
+(7, 4),
+(7, 5),
+(7, 6),
+(7, 8),
+(7, 9),
+(7, 10),
+(7, 11),
+(7, 12),
+(8, 2),
+(8, 3),
+(8, 4),
+(8, 5),
+(8, 6),
+(8, 7),
+(8, 9),
+(8, 10),
+(8, 11),
+(8, 12),
+(9, 2),
+(9, 3),
+(9, 4),
+(9, 5),
+(9, 6),
+(9, 7),
+(9, 8),
+(9, 10),
+(9, 11),
+(9, 12),
+(10, 2),
+(10, 3),
+(10, 4),
+(10, 5),
+(10, 6),
+(10, 7),
+(10, 8),
+(10, 9),
+(10, 11),
+(10, 12),
+(11, 2),
+(11, 3),
+(11, 4),
+(11, 5),
+(11, 6),
+(11, 7),
+(11, 8),
+(11, 9),
+(11, 10),
+(11, 12),
+(12, 2),
+(12, 3),
+(12, 4),
+(12, 5),
+(12, 6),
+(12, 7),
+(12, 8),
+(12, 9),
+(12, 10),
+(12, 11);
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `tbl_planning_work_orders`
+--
+
+CREATE TABLE `tbl_planning_work_orders` (
+  `WorkOrderID` int(11) NOT NULL,
+  `RunID` int(11) NOT NULL,
+  `StationID` int(11) NOT NULL,
+  `PartID` int(11) NOT NULL,
+  `RequiredStatusID` int(11) NOT NULL COMMENT 'وضعیت مورد نیاز ورودی',
+  `TargetStatusID` int(11) NOT NULL COMMENT 'وضعیت هدف خروجی',
+  `Quantity` decimal(12,2) NOT NULL,
+  `Unit` varchar(10) NOT NULL,
+  `DueDate` date NOT NULL,
+  `Priority` int(11) NOT NULL DEFAULT 10,
+  `Status` enum('Generated','InProgress','Completed') NOT NULL DEFAULT 'Generated'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci;
 
 -- --------------------------------------------------------
 
@@ -2698,7 +2991,10 @@ CREATE TABLE `tbl_raw_items` (
 
 INSERT INTO `tbl_raw_items` (`ItemID`, `ItemName`, `CategoryID`, `UnitID`, `SafetyStock`) VALUES
 (1, 'ورق محفظه کوچک', 1, 1, NULL),
-(2, 'مفتول 4.64', 2, 1, NULL);
+(2, 'مفتول 4.64', 2, 1, NULL),
+(3, 'ورق 1-1/16', 1, 1, NULL),
+(4, 'مفتول 6.60', 2, 1, NULL),
+(5, 'ورق 5/8', 1, 1, NULL);
 
 -- --------------------------------------------------------
 
@@ -2803,6 +3099,9 @@ INSERT INTO `tbl_role_permissions` (`RoleID`, `PermissionKey`) VALUES
 (1, 'planning.sales_orders.view'),
 (1, 'planning.view'),
 (1, 'planning.view_alerts'),
+(1, 'planning_constraints.manage'),
+(1, 'planning_constraints.planning_capacity.run'),
+(1, 'planning_constraints.view'),
 (1, 'production.assembly_hall.manage'),
 (1, 'production.assembly_hall.view'),
 (1, 'production.plating_hall.manage'),
@@ -2987,7 +3286,8 @@ CREATE TABLE `tbl_sales_orders` (
 --
 
 INSERT INTO `tbl_sales_orders` (`SalesOrderID`, `PartID`, `QuantityRequired`, `DueDate`, `Status`, `CreatedAt`) VALUES
-(1, 55, 10000, '2025-11-06', 'Open', '2025-11-01 04:28:23');
+(4, 49, 100000, '2025-11-06', 'Open', '2025-11-02 09:02:01'),
+(5, 55, 1000000, '2025-11-06', 'Open', '2025-11-02 09:06:26');
 
 -- --------------------------------------------------------
 
@@ -3085,11 +3385,9 @@ CREATE TABLE `tbl_stock_transactions` (
 --
 
 INSERT INTO `tbl_stock_transactions` (`TransactionID`, `TransactionDate`, `PartID`, `FromStationID`, `ToStationID`, `GrossWeightKG`, `PalletTypeID`, `PalletWeightKG`, `NetWeightKG`, `CartonQuantity`, `BaseWeightGR`, `AppliedWeightChangePercent`, `FinalWeightGR`, `StatusAfter`, `StatusAfterID`, `RouteStatus`, `DeviationID`, `PendingReason`, `CreatedBy`, `OperatorEmployeeID`, `SenderEmployeeID`, `ReceiverID`, `TransactionTypeID`, `CreatedAt`) VALUES
-(4, '2025-10-23 10:18:57', 7, 4, 8, 21.900, NULL, 0.000, 21.900, NULL, 2.080, 0.00, 2.080, 'آبکاری شده', 2, 'Standard', NULL, NULL, 1, NULL, NULL, NULL, NULL, '2025-10-26 10:15:57'),
 (8, '2025-10-23 09:54:54', 55, 4, 9, 45.000, NULL, 0.000, 45.000, NULL, 15.600, 0.00, 15.600, 'آبکاری شده', 2, 'Standard', NULL, NULL, 1, 13, NULL, NULL, NULL, '2025-10-26 12:24:54'),
 (9, '2025-10-23 10:19:10', 44, 9, 10, 45.000, NULL, 0.000, 45.000, NULL, 5.600, 0.00, 5.600, 'مونتاژ شده\r\n', NULL, 'Standard', NULL, NULL, 1, 13, NULL, NULL, NULL, '2025-10-26 12:39:11'),
 (10, '2025-10-20 10:12:20', 55, 4, 9, 45.200, 1, 2.600, 42.600, NULL, 15.600, 0.00, 15.600, 'آبکاری شده', 2, 'Standard', NULL, NULL, 1, 4, NULL, NULL, NULL, '2025-10-26 12:42:20'),
-(13, '2025-10-21 10:28:57', 7, 8, 12, 45.200, 1, 2.600, 42.600, NULL, 2.080, 0.00, 2.080, 'آبکاری شده', 2, 'Standard', NULL, NULL, 1, 17, NULL, NULL, NULL, '2025-10-26 12:58:57'),
 (14, '2025-10-21 10:40:14', 3, 8, 12, 46.000, NULL, 0.000, 46.000, NULL, 2.080, 0.00, 2.080, 'تسمه آبکاری نشده', NULL, 'NonStandardApproved', NULL, NULL, 1, 31, NULL, NULL, NULL, '2025-10-26 13:10:14'),
 (15, '2025-10-28 08:17:48', 18, 3, 8, 40.000, NULL, 0.000, 40.000, NULL, 10.400, 0.00, 10.400, NULL, 4, 'Standard', NULL, NULL, 1, 13, NULL, NULL, NULL, '2025-10-28 10:47:48'),
 (16, '2025-10-28 08:18:24', 64, 4, 9, 40.000, NULL, 0.000, 40.000, NULL, 25.500, 0.00, 25.500, NULL, 2, 'Standard', NULL, NULL, 1, 13, NULL, NULL, NULL, '2025-10-28 10:48:24'),
@@ -3113,8 +3411,8 @@ INSERT INTO `tbl_stock_transactions` (`TransactionID`, `TransactionDate`, `PartI
 (42, '2025-10-23 10:04:34', 62, 11, 13, 0.000, NULL, 0.000, 0.000, 5, NULL, NULL, NULL, NULL, 30, 'Standard', NULL, NULL, 1, 18, NULL, 3, NULL, '2025-10-29 12:34:34'),
 (47, '2025-11-01 03:15:00', 55, 10, 11, 0.000, NULL, 0.000, 0.000, 20, NULL, NULL, NULL, NULL, 11, 'Standard', NULL, NULL, 1, 17, NULL, NULL, NULL, '2025-11-01 05:45:00'),
 (48, '2025-11-01 04:05:47', 55, 11, 11, 0.000, NULL, 0.000, NULL, -4, NULL, NULL, NULL, NULL, 11, 'Standard', NULL, NULL, 1, 6, NULL, NULL, 5, '2025-11-01 06:35:47'),
-(50, '2025-11-01 04:16:20', 7, 8, 8, -30.000, NULL, 0.000, -30.000, NULL, 2.080, 0.00, 2.080, NULL, 2, 'Standard', NULL, NULL, 1, 17, NULL, NULL, 5, '2025-11-01 06:46:20'),
-(51, '2025-11-01 04:17:46', 7, 4, 8, 80.000, NULL, 0.000, 80.000, NULL, 2.080, 0.00, 2.080, NULL, 2, 'Standard', NULL, NULL, 1, 7, NULL, NULL, NULL, '2025-11-01 06:47:46');
+(51, '2025-11-01 04:17:46', 7, 4, 8, 80.000, NULL, 0.000, 80.000, NULL, 2.080, 0.00, 2.080, NULL, 2, 'Standard', NULL, NULL, 1, 7, NULL, NULL, NULL, '2025-11-01 06:47:46'),
+(52, '2025-11-02 06:54:33', 7, 2, 8, 40.000, NULL, 0.000, 40.000, NULL, 2.080, 0.00, 2.080, NULL, 1, 'NonStandardApproved', NULL, NULL, 1, 35, NULL, NULL, NULL, '2025-11-02 09:24:33');
 
 -- --------------------------------------------------------
 
@@ -3616,13 +3914,6 @@ ALTER TABLE `tbl_packaging_log_shifts`
   ADD KEY `fk_pls_pkg_employee` (`EmployeeID`);
 
 --
--- Indexes for table `tbl_packaging_weights`
---
-ALTER TABLE `tbl_packaging_weights`
-  ADD PRIMARY KEY (`PackageWeightID`),
-  ADD UNIQUE KEY `size_quantity_unique` (`SizeID`,`ContainedQuantity`);
-
---
 -- Indexes for table `tbl_pallet_types`
 --
 ALTER TABLE `tbl_pallet_types`
@@ -3683,6 +3974,77 @@ ALTER TABLE `tbl_part_weights`
   ADD PRIMARY KEY (`PartWeightID`),
   ADD KEY `idx_part_weight_partid` (`PartID`),
   ADD KEY `idx_part_weight_dates` (`EffectiveFrom`,`EffectiveTo`);
+
+--
+-- Indexes for table `tbl_planning_batch_compatibility`
+--
+ALTER TABLE `tbl_planning_batch_compatibility`
+  ADD PRIMARY KEY (`CompatibilityID`),
+  ADD UNIQUE KEY `idx_compatibility_pair` (`PrimaryPartID`,`CompatiblePartID`),
+  ADD KEY `CompatiblePartID` (`CompatiblePartID`);
+
+--
+-- Indexes for table `tbl_planning_capacity_override`
+--
+ALTER TABLE `tbl_planning_capacity_override`
+  ADD PRIMARY KEY (`OverrideID`),
+  ADD UNIQUE KEY `UK_Date_Station` (`PlanningDate`,`StationID`),
+  ADD KEY `FK_planning_override_station` (`StationID`),
+  ADD KEY `FK_planning_override_user` (`LastUpdatedBy`);
+
+--
+-- Indexes for table `tbl_planning_mrp_results`
+--
+ALTER TABLE `tbl_planning_mrp_results`
+  ADD PRIMARY KEY (`ResultID`),
+  ADD KEY `fk_mrp_result_run` (`RunID`);
+
+--
+-- Indexes for table `tbl_planning_mrp_run`
+--
+ALTER TABLE `tbl_planning_mrp_run`
+  ADD PRIMARY KEY (`RunID`),
+  ADD KEY `fk_mrp_run_user` (`RunByUserID`);
+
+--
+-- Indexes for table `tbl_planning_part_to_group`
+--
+ALTER TABLE `tbl_planning_part_to_group`
+  ADD PRIMARY KEY (`PartID`,`GroupID`),
+  ADD KEY `GroupID` (`GroupID`);
+
+--
+-- Indexes for table `tbl_planning_plating_groups`
+--
+ALTER TABLE `tbl_planning_plating_groups`
+  ADD PRIMARY KEY (`GroupID`),
+  ADD UNIQUE KEY `idx_group_name` (`GroupName`);
+
+--
+-- Indexes for table `tbl_planning_station_capacity_rules`
+--
+ALTER TABLE `tbl_planning_station_capacity_rules`
+  ADD PRIMARY KEY (`RuleID`),
+  ADD UNIQUE KEY `UK_Station_Method_Machine_Part` (`StationID`,`CalculationMethod`,`MachineID`,`PartID`),
+  ADD KEY `FK_planning_rules_station` (`StationID`),
+  ADD KEY `fk_capacity_rule_machine` (`MachineID`),
+  ADD KEY `fk_capacity_rule_part` (`PartID`);
+
+--
+-- Indexes for table `tbl_planning_vibration_incompatibility`
+--
+ALTER TABLE `tbl_planning_vibration_incompatibility`
+  ADD PRIMARY KEY (`PrimaryPartID`,`IncompatiblePartID`) USING BTREE,
+  ADD KEY `fk_vib_incompatible_part` (`IncompatiblePartID`);
+
+--
+-- Indexes for table `tbl_planning_work_orders`
+--
+ALTER TABLE `tbl_planning_work_orders`
+  ADD PRIMARY KEY (`WorkOrderID`),
+  ADD KEY `fk_wo_run` (`RunID`),
+  ADD KEY `fk_wo_station` (`StationID`),
+  ADD KEY `fk_wo_part` (`PartID`);
 
 --
 -- Indexes for table `tbl_plating_compatibility`
@@ -4241,7 +4603,7 @@ ALTER TABLE `tbl_order_statuses`
 -- AUTO_INCREMENT for table `tbl_packaging_configs`
 --
 ALTER TABLE `tbl_packaging_configs`
-  MODIFY `PackageConfigID` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
+  MODIFY `PackageConfigID` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=9;
 
 --
 -- AUTO_INCREMENT for table `tbl_packaging_log_details`
@@ -4260,12 +4622,6 @@ ALTER TABLE `tbl_packaging_log_header`
 --
 ALTER TABLE `tbl_packaging_log_shifts`
   MODIFY `ShiftID` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
-
---
--- AUTO_INCREMENT for table `tbl_packaging_weights`
---
-ALTER TABLE `tbl_packaging_weights`
-  MODIFY `PackageWeightID` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `tbl_pallet_types`
@@ -4289,7 +4645,7 @@ ALTER TABLE `tbl_part_families`
 -- AUTO_INCREMENT for table `tbl_part_raw_materials`
 --
 ALTER TABLE `tbl_part_raw_materials`
-  MODIFY `PartBomID` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `PartBomID` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=10;
 
 --
 -- AUTO_INCREMENT for table `tbl_part_sizes`
@@ -4308,6 +4664,48 @@ ALTER TABLE `tbl_part_statuses`
 --
 ALTER TABLE `tbl_part_weights`
   MODIFY `PartWeightID` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=71;
+
+--
+-- AUTO_INCREMENT for table `tbl_planning_batch_compatibility`
+--
+ALTER TABLE `tbl_planning_batch_compatibility`
+  MODIFY `CompatibilityID` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=25;
+
+--
+-- AUTO_INCREMENT for table `tbl_planning_capacity_override`
+--
+ALTER TABLE `tbl_planning_capacity_override`
+  MODIFY `OverrideID` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `tbl_planning_mrp_results`
+--
+ALTER TABLE `tbl_planning_mrp_results`
+  MODIFY `ResultID` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `tbl_planning_mrp_run`
+--
+ALTER TABLE `tbl_planning_mrp_run`
+  MODIFY `RunID` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `tbl_planning_plating_groups`
+--
+ALTER TABLE `tbl_planning_plating_groups`
+  MODIFY `GroupID` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+
+--
+-- AUTO_INCREMENT for table `tbl_planning_station_capacity_rules`
+--
+ALTER TABLE `tbl_planning_station_capacity_rules`
+  MODIFY `RuleID` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=13;
+
+--
+-- AUTO_INCREMENT for table `tbl_planning_work_orders`
+--
+ALTER TABLE `tbl_planning_work_orders`
+  MODIFY `WorkOrderID` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `tbl_plating_events_log`
@@ -4427,7 +4825,7 @@ ALTER TABLE `tbl_raw_categories`
 -- AUTO_INCREMENT for table `tbl_raw_items`
 --
 ALTER TABLE `tbl_raw_items`
-  MODIFY `ItemID` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `ItemID` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
 
 --
 -- AUTO_INCREMENT for table `tbl_raw_transactions`
@@ -4475,7 +4873,7 @@ ALTER TABLE `tbl_route_overrides`
 -- AUTO_INCREMENT for table `tbl_sales_orders`
 --
 ALTER TABLE `tbl_sales_orders`
-  MODIFY `SalesOrderID` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+  MODIFY `SalesOrderID` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
 
 --
 -- AUTO_INCREMENT for table `tbl_spare_part_orders`
@@ -4493,7 +4891,7 @@ ALTER TABLE `tbl_stations`
 -- AUTO_INCREMENT for table `tbl_stock_transactions`
 --
 ALTER TABLE `tbl_stock_transactions`
-  MODIFY `TransactionID` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=52;
+  MODIFY `TransactionID` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=53;
 
 --
 -- AUTO_INCREMENT for table `tbl_task_statuses`
@@ -4764,12 +5162,6 @@ ALTER TABLE `tbl_packaging_log_shifts`
   ADD CONSTRAINT `fk_pls_pkg_header` FOREIGN KEY (`PackagingHeaderID`) REFERENCES `tbl_packaging_log_header` (`PackagingHeaderID`) ON DELETE CASCADE;
 
 --
--- Constraints for table `tbl_packaging_weights`
---
-ALTER TABLE `tbl_packaging_weights`
-  ADD CONSTRAINT `fk_packaging_weight_size` FOREIGN KEY (`SizeID`) REFERENCES `tbl_part_sizes` (`SizeID`) ON DELETE CASCADE;
-
---
 -- Constraints for table `tbl_parts`
 --
 ALTER TABLE `tbl_parts`
@@ -4801,6 +5193,62 @@ ALTER TABLE `tbl_part_sizes`
 --
 ALTER TABLE `tbl_part_weights`
   ADD CONSTRAINT `tbl_part_weights_ibfk_1` FOREIGN KEY (`PartID`) REFERENCES `tbl_parts` (`PartID`) ON DELETE CASCADE;
+
+--
+-- Constraints for table `tbl_planning_batch_compatibility`
+--
+ALTER TABLE `tbl_planning_batch_compatibility`
+  ADD CONSTRAINT `tbl_planning_batch_compatibility_ibfk_1` FOREIGN KEY (`PrimaryPartID`) REFERENCES `tbl_parts` (`PartID`) ON DELETE CASCADE,
+  ADD CONSTRAINT `tbl_planning_batch_compatibility_ibfk_2` FOREIGN KEY (`CompatiblePartID`) REFERENCES `tbl_parts` (`PartID`) ON DELETE CASCADE;
+
+--
+-- Constraints for table `tbl_planning_capacity_override`
+--
+ALTER TABLE `tbl_planning_capacity_override`
+  ADD CONSTRAINT `FK_planning_override_station` FOREIGN KEY (`StationID`) REFERENCES `tbl_stations` (`StationID`) ON DELETE CASCADE,
+  ADD CONSTRAINT `FK_planning_override_user` FOREIGN KEY (`LastUpdatedBy`) REFERENCES `tbl_users` (`UserID`) ON DELETE SET NULL;
+
+--
+-- Constraints for table `tbl_planning_mrp_results`
+--
+ALTER TABLE `tbl_planning_mrp_results`
+  ADD CONSTRAINT `fk_mrp_result_run` FOREIGN KEY (`RunID`) REFERENCES `tbl_planning_mrp_run` (`RunID`) ON DELETE CASCADE;
+
+--
+-- Constraints for table `tbl_planning_mrp_run`
+--
+ALTER TABLE `tbl_planning_mrp_run`
+  ADD CONSTRAINT `fk_mrp_run_user` FOREIGN KEY (`RunByUserID`) REFERENCES `tbl_users` (`UserID`) ON DELETE SET NULL;
+
+--
+-- Constraints for table `tbl_planning_part_to_group`
+--
+ALTER TABLE `tbl_planning_part_to_group`
+  ADD CONSTRAINT `tbl_planning_part_to_group_ibfk_1` FOREIGN KEY (`PartID`) REFERENCES `tbl_parts` (`PartID`) ON DELETE CASCADE,
+  ADD CONSTRAINT `tbl_planning_part_to_group_ibfk_2` FOREIGN KEY (`GroupID`) REFERENCES `tbl_planning_plating_groups` (`GroupID`) ON DELETE CASCADE;
+
+--
+-- Constraints for table `tbl_planning_station_capacity_rules`
+--
+ALTER TABLE `tbl_planning_station_capacity_rules`
+  ADD CONSTRAINT `FK_planning_rules_station` FOREIGN KEY (`StationID`) REFERENCES `tbl_stations` (`StationID`) ON DELETE CASCADE,
+  ADD CONSTRAINT `fk_capacity_rule_machine` FOREIGN KEY (`MachineID`) REFERENCES `tbl_machines` (`MachineID`) ON DELETE CASCADE,
+  ADD CONSTRAINT `fk_capacity_rule_part` FOREIGN KEY (`PartID`) REFERENCES `tbl_parts` (`PartID`) ON DELETE CASCADE;
+
+--
+-- Constraints for table `tbl_planning_vibration_incompatibility`
+--
+ALTER TABLE `tbl_planning_vibration_incompatibility`
+  ADD CONSTRAINT `fk_vib_incompatible_part` FOREIGN KEY (`IncompatiblePartID`) REFERENCES `tbl_parts` (`PartID`) ON DELETE CASCADE,
+  ADD CONSTRAINT `fk_vib_primary_part` FOREIGN KEY (`PrimaryPartID`) REFERENCES `tbl_parts` (`PartID`) ON DELETE CASCADE;
+
+--
+-- Constraints for table `tbl_planning_work_orders`
+--
+ALTER TABLE `tbl_planning_work_orders`
+  ADD CONSTRAINT `fk_wo_part` FOREIGN KEY (`PartID`) REFERENCES `tbl_parts` (`PartID`),
+  ADD CONSTRAINT `fk_wo_run` FOREIGN KEY (`RunID`) REFERENCES `tbl_planning_mrp_run` (`RunID`) ON DELETE CASCADE,
+  ADD CONSTRAINT `fk_wo_station` FOREIGN KEY (`StationID`) REFERENCES `tbl_stations` (`StationID`);
 
 --
 -- Constraints for table `tbl_plating_compatibility`

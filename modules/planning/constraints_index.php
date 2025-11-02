@@ -1,101 +1,118 @@
 <?php
 require_once __DIR__ . '/../../config/init.php';
-
 if (!has_permission('planning_constraints.view')) {
-    die('شما مجوز دسترسی به این ماژول را ندارید.');
+    die('شما مجوز دسترسی به این صفحه را ندارید.');
 }
 
-$pageTitle = "داشبورد محدودیت‌ها و ظرفیت‌ها";
+$pageTitle = "مرکز مدیریت محدودیت‌ها و ظرفیت‌ها";
 include __DIR__ . '/../../templates/header.php';
 ?>
 
-<div class="page-header d-flex justify-content-between align-items-center">
-    <h1 class="h3 mb-0">مدیریت محدودیت‌ها و ظرفیت‌ها (FCS)</h1>
-    <a href="<?php echo BASE_URL; ?>modules/Planning/index.php" class="btn btn-outline-secondary">
-        <i class="bi bi-arrow-right"></i> بازگشت به داشبورد برنامه‌ریزی
-    </a>
-</div>
-
-<p class="lead mt-3">در این بخش، قوانین، محدودیت‌ها و ظرفیت‌های واقعی خطوط تولید (مانند نیروی انسانی، زمان ستاپ و سازگاری فرآیندها) را برای استفاده در زمان‌بندی پیشرفته (FCS) تعریف کنید.</p>
-
-<div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4 mt-3">
-
-    <?php 
-    // کارت جدید برای بازبینی ظرفیت
-    if (has_permission('planning_constraints.planning_capacity.run')): 
-    ?>
-    <div class="col">
-        <div class="card h-100 module-card shadow-sm card-highlight">
-            <a href="capacity_planning.php">
-                <div class="card-body">
-                    <div class="icon mb-3"><i class="bi bi-calendar-check-fill"></i></div>
-                    <h5 class="card-title">برنامه‌ریزی و بازبینی ظرفیت</h5>
-                    <p class="card-text">محاسبه، بازبینی و تایید ظرفیت نهایی ایستگاه‌ها برای MRP.</p>
-                </div>
-            </a>
-        </div>
+<div class="container-fluid">
+    <div class="page-header d-flex justify-content-between align-items-center">
+        <h1 class="h3 mb-0"><?php echo $pageTitle; ?></h1>
+        <a href="index.php" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-right me-1"></i>
+            بازگشت به منوی برنامه‌ریزی
+        </a>
     </div>
-    <?php endif; ?>
+    <p class="mb-3">
+        از این بخش برای تعریف قوانین و محدودیت‌های کلیدی فرایندهای تولید جهت استفاده در ماژول برنامه‌ریزی استفاده کنید.
+    </p>
 
-    <?php 
-    if (has_permission('planning_constraints.manage')): 
-    ?>
-    <div class="col">
-        <div class="card h-100 module-card shadow-sm">
-            <a href="manage_station_capacity.php">
-                <div class="card-body">
-                    <div class="icon mb-3"><i class="bi bi-sliders"></i></div>
-                    <h5 class="card-title">مدیریت قوانین ظرفیت</h5>
-                    <p class="card-text">تعریف "روش محاسبه" ظرفیت برای هر ایستگاه (OEE، نفر-ساعت، ...).</p>
+    <div class="row">
+        <!-- Card 1: Station Capacity -->
+        <?php if (has_permission('planning_constraints.manage')): ?>
+        <div class="col-md-6 col-lg-4 mb-3">
+            <div class="card h-100 shadow-sm border-0">
+                <div class="card-body d-flex flex-column">
+                    <h5 class="card-title text-primary"><i class="bi bi-gear-wide-connected me-2"></i>مدیریت ظرفیت ایستگاه‌ها</h5>
+                    <p class="card-text small text-muted">
+                        تعریف و مدیریت ظرفیت تولیدی (OEE، ثابت و...) برای ایستگاه‌های کلیدی مانند پرسکاری، مونتاژ، رول، آبکاری و بسته‌بندی.
+                    </p>
+                    <div class="mt-auto">
+                        <a href="manage_station_capacity.php" class="btn btn-primary"><i class="bi bi-pencil-square me-1"></i> مدیریت ظرفیت</a>
+                    </div>
                 </div>
-            </a>
+            </div>
         </div>
-    </div>
-    <?php endif; ?>
+        <?php endif; ?>
 
-    <?php if (has_permission('planning_constraints.manage')): ?>
-    <div class="col">
-        <div class="card h-100 module-card shadow-sm">
-            <a href="manage_plating_groups.php">
-                <div class="card-body">
-                    <div class="icon mb-3"><i class="bi bi-collection-fill"></i></div>
-                    <h5 class="card-title">مدیریت گروه‌های آبکاری</h5>
-                    <p class="card-text">تعریف گروه‌های فرآیندی آبکاری و زمان ستاپ بین آن‌ها.</p>
+        <!-- Card 2: Plating Batch Rules -->
+        <?php if (has_permission('planning_constraints.manage')): ?>
+        <div class="col-md-6 col-lg-4 mb-3">
+            <div class="card h-100 shadow-sm border-0">
+                <div class="card-body d-flex flex-column">
+                    <h5 class="card-title text-primary"><i class="bi bi-bucket-fill me-2"></i>مدیریت قوانین آبکاری (بچینگ)</h5>
+                    <p class="card-text small text-muted">
+                        تعریف وزن بارل (تکی و ترکیبی) و مشخص کردن اینکه کدام قطعات می‌توانند با هم در یک بارل آبکاری شوند.
+                    </p>
+                    <div class="mt-auto">
+                        <a href="manage_plating_rules.php" class="btn btn-primary"><i class="bi bi-pencil-square me-1"></i> مدیریت قوانین آبکاری</a>
+                    </div>
                 </div>
-            </a>
+            </div>
         </div>
-    </div>
-    <?php endif; ?>
-    
-    <?php if (has_permission('planning_constraints.manage')): ?>
-    <div class="col">
-        <div class="card h-100 module-card shadow-sm">
-            <a href="manage_part_to_group.php">
-                <div class="card-body">
-                    <div class="icon mb-3"><i class="bi bi-link-45deg"></i></div>
-                    <h5 class="card-title">اتصال قطعه به گروه آبکاری</h5>
-                    <p class="card-text">مشخص کنید هر قطعه به کدام گروه آبکاری تعلق دارد.</p>
+        <?php endif; ?>
+        
+        <!-- Card 3: Vibration Incompatibility -->
+        <?php if (has_permission('planning_constraints.manage')): ?>
+        <div class="col-md-6 col-lg-4 mb-3">
+            <div class="card h-100 shadow-sm border-0">
+                <div class="card-body d-flex flex-column">
+                    <h5 class="card-title text-primary"><i class="bi bi-diagram-3-fill me-2"></i>مدیریت ناسازگاری ویبره</h5>
+                    <p class="card-text small text-muted">
+                        تعریف قطعاتی که نمی‌توانند پشت سر هم در دستگاه ویبره قرار گیرند تا از اتلاف وقت برای تمیزکاری جلوگیری شود.
+                    </p>
+                    <div class="mt-auto">
+                        <a href="manage_vibration_incompatibility.php" class="btn btn-primary"><i class="bi bi-pencil-square me-1"></i> مدیریت ناسازگاری</a>
+                    </div>
                 </div>
-            </a>
+            </div>
         </div>
-    </div>
-    <?php endif; ?>
+        <?php endif; ?>
 
-    <?php if (has_permission('planning_constraints.manage')): ?>
-    <div class="col">
-        <div class="card h-100 module-card shadow-sm">
-            <a href="manage_batch_compatibility.php">
-                <div class="card-body">
-                    <div class="icon mb-3"><i class="bi bi-boxes"></i></div>
-                    <h5 class="card-title">مدیریت سازگاری بچ</h5>
-                    <p class="card-text">تعریف اینکه کدام قطعات می‌توانند با هم در یک بچ تولید (مثلاً آبکاری) شوند.</p>
+        <!-- Old Links (Now replaced by the new system) -->
+        <?php /*
+        <div class="col-md-6 col-lg-4 mb-3">
+            <div class="card h-100 bg-light">
+                <div class="card-body d-flex flex-column">
+                    <h5 class="card-title text-muted">مدیریت گروه‌های آبکاری (منسوخ شده)</h5>
+                    <p class="card-text small text-muted">تعریف گروه‌های اصلی آبکاری (مثلا: روی-سیانوری) برای مدیریت بچینگ.</p>
+                    <div class="mt-auto">
+                        <a href="manage_plating_groups.php" class="btn btn-outline-secondary disabled">مدیریت گروه‌ها</a>
+                    </div>
                 </div>
-            </a>
+            </div>
         </div>
-    </div>
-    <?php endif; ?>
+        
+        <div class="col-md-6 col-lg-4 mb-3">
+            <div class="card h-100 bg-light">
+                <div class="card-body d-flex flex-column">
+                    <h5 class="card-title text-muted">اتصال قطعه به گروه (منسوخ شده)</h5>
+                    <p class="card-text small text-muted">اتصال هر قطعه به گروه آبکاری مربوط به خود.</p>
+                    <div class="mt-auto">
+                        <a href="manage_part_to_group.php" class="btn btn-outline-secondary disabled">مدیریت اتصالات</a>
+                    </div>
+                </div>
+            </div>
+        </div>
 
-</div>
+        <div class="col-md-6 col-lg-4 mb-3">
+            <div class="card h-100 bg-light">
+                <div class="card-body d-flex flex-column">
+                    <h5 class="card-title text-muted">مدیریت سازگاری بچ (منسوخ شده)</h5>
+                    <p class="card-text small text-muted">تعریف اینکه کدام قطعات می‌توانند با هم در یک بچ (Batch) آبکاری قرار گیرند.</p>
+                    <div class="mt-auto">
+                        <a href="manage_batch_compatibility.php" class="btn btn-outline-secondary disabled">مدیریت سازگاری</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        */ ?>
+
+    </div> <!-- /.row -->
+</div> <!-- /.container-fluid -->
 
 <?php include __DIR__ . '/../../templates/footer.php'; ?>
 

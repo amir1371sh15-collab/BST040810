@@ -1,303 +1,563 @@
 <?php
-require_once __DIR__ . '/../../config/init.php';
+include_once '../../config/init.php';
+include_once '../../templates/header.php';
 
-if (!has_permission('planning_constraints.manage')) { 
-    die('شما مجوز دسترسی به این صفحه را ندارید.'); 
-}
+// check_permission('planning_constraints.view');
 
-const TABLE_NAME = 'tbl_planning_station_capacity_rules';
-const PRIMARY_KEY = 'RuleID';
+// 1. واکشی ایستگاه‌های تولیدی (فیلتر شده)
+$stmt_stations = $pdo->query("SELECT StationID, StationName FROM tbl_stations WHERE StationType = 'Production' ORDER BY StationName");
+$stations = $stmt_stations->fetchAll(PDO::FETCH_ASSOC);
 
-$editMode = false;
-$itemToEdit = null;
-$message = $_SESSION['message'] ?? '';
-$message_type = $_SESSION['message_type'] ?? '';
-unset($_SESSION['message'], $_SESSION['message_type']);
+// واکشی همه خانواده‌های محصول (برای مودال)
+$stmt_families = $pdo->query("SELECT FamilyID, FamilyName FROM tbl_part_families ORDER BY FamilyName");
+$all_families = $stmt_families->fetchAll(PDO::FETCH_ASSOC);
 
-// واکشی ایستگاه‌ها برای دراپ‌داون
-$stations = $pdo->query("SELECT StationID, StationName FROM tbl_stations ORDER BY StationName")->fetchAll(PDO::FETCH_ASSOC);
+// 2. بررسی ایستگاه انتخاب شده
+$selected_station_id = isset($_GET['station_id']) ? intval($_GET['station_id']) : 0;
+$selected_station_name = '';
 
-// تعریف متدهای محاسبه ظرفیت
-$calculation_methods = [
-    'FixedAmount' => 'مقدار ثابت روزانه (پیش‌فرض)',
-    'ManHours' => 'نفر-ساعت در دسترس',
-    'OEE' => 'OEE (بر اساس راندمان گذشته)',
-    'PlatingManHours' => 'نفر-ساعت آبکاری (منطق خاص)',
-    'AssemblySmall' => 'مونتاژ (دستگاه کوچک - ثابت)',
-    'AssemblyLarge' => 'مونتاژ (دستگاه بزرگ - ثابت)',
-    'Rolling' => 'رول (ثابت)',
-    'Packaging' => 'بسته‌بندی (ثابت)'
-];
-
-// تعریف واحدهای ظرفیت استاندارد
-$capacity_units = [
-    'KG/Day' => 'کیلوگرم / روز',
-    'Pieces/Day' => 'عدد / روز',
-    'Carton/Day' => 'کارتن / روز',
-    'ManHours' => 'نفر-ساعت'
-];
-
-// Handle POST request
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    try {
-        if (isset($_POST['delete_id'])) {
-            // حذف رکورد
-            $sql_delete = "DELETE FROM " . TABLE_NAME . " WHERE " . PRIMARY_KEY . " = ?";
-            $stmt_delete = $pdo->prepare($sql_delete);
-            $stmt_delete->execute([(int)$_POST['delete_id']]);
-            
-            $_SESSION['message'] = 'قانون با موفقیت حذف شد.';
-            $_SESSION['message_type'] = 'success';
-        } else {
-            $data = [
-                'StationID' => (int)$_POST['station_id'],
-                'CalculationMethod' => $_POST['calculation_method'],
-                'StandardValue' => !empty($_POST['standard_value']) ? (float)$_POST['standard_value'] : null,
-                'CapacityUnit' => $_POST['capacity_unit'],
-                'Notes' => trim($_POST['notes'])
-            ];
-
-            // اعتبارسنجی
-            if (empty($data['StationID']) || empty($data['CalculationMethod']) || empty($data['CapacityUnit'])) {
-                $_SESSION['message'] = 'ایستگاه، متد محاسبه و واحد ظرفیت الزامی است.';
-                $_SESSION['message_type'] = 'warning';
-            } else {
-                // جلوگیری از ثبت ایستگاه تکراری
-                $existing_rule_q = "SELECT RuleID FROM " . TABLE_NAME . " WHERE StationID = ? AND RuleID != ?";
-                $stmt_check = $pdo->prepare($existing_rule_q);
-                $stmt_check->execute([$data['StationID'], (int)($_POST[PRIMARY_KEY] ?? 0)]);
-                $existing_rule = $stmt_check->fetch(PDO::FETCH_ASSOC);
-
-                if ($existing_rule) {
-                    $_SESSION['message'] = 'یک قانون محاسبه ظرفیت برای این ایستگاه قبلاً ثبت شده است.';
-                    $_SESSION['message_type'] = 'danger';
-                } else {
-                    if (isset($_POST[PRIMARY_KEY]) && !empty($_POST[PRIMARY_KEY])) {
-                        // Update
-                        $sql_update = "UPDATE " . TABLE_NAME . " SET 
-                                      StationID = ?, 
-                                      CalculationMethod = ?, 
-                                      StandardValue = ?, 
-                                      CapacityUnit = ?, 
-                                      Notes = ? 
-                                      WHERE " . PRIMARY_KEY . " = ?";
-                        $stmt_update = $pdo->prepare($sql_update);
-                        $stmt_update->execute([
-                            $data['StationID'],
-                            $data['CalculationMethod'],
-                            $data['StandardValue'],
-                            $data['CapacityUnit'],
-                            $data['Notes'],
-                            (int)$_POST[PRIMARY_KEY]
-                        ]);
-                        
-                        $_SESSION['message'] = 'قانون با موفقیت بروزرسانی شد.';
-                        $_SESSION['message_type'] = 'success';
-                    } else {
-                        // Insert
-                        $sql_insert = "INSERT INTO " . TABLE_NAME . " 
-                                      (StationID, CalculationMethod, StandardValue, CapacityUnit, Notes) 
-                                      VALUES (?, ?, ?, ?, ?)";
-                        $stmt_insert = $pdo->prepare($sql_insert);
-                        $stmt_insert->execute([
-                            $data['StationID'],
-                            $data['CalculationMethod'],
-                            $data['StandardValue'],
-                            $data['CapacityUnit'],
-                            $data['Notes']
-                        ]);
-                        
-                        $_SESSION['message'] = 'قانون با موفقیت ایجاد شد.';
-                        $_SESSION['message_type'] = 'success';
-                    }
-                }
-            }
+if ($selected_station_id > 0) {
+    foreach ($stations as $station) {
+        if ($station['StationID'] == $selected_station_id) {
+            $selected_station_name = $station['StationName'];
+            break;
         }
-    } catch (PDOException $e) {
-        error_log("Database Error in manage_station_capacity.php: " . $e->getMessage());
-        $_SESSION['message'] = 'خطای دیتابیس: ' . $e->getMessage();
-        $_SESSION['message_type'] = 'danger';
     }
-    
-    header("Location: " . BASE_URL . "modules/planning/manage_station_capacity.php");
-    exit;
 }
-
-// Handle GET request for editing
-if (isset($_GET['edit_id']) && is_numeric($_GET['edit_id'])) {
-    $editMode = true;
-    $sql_edit = "SELECT * FROM " . TABLE_NAME . " WHERE " . PRIMARY_KEY . " = ?";
-    $stmt_edit = $pdo->prepare($sql_edit);
-    $stmt_edit->execute([(int)$_GET['edit_id']]);
-    $itemToEdit = $stmt_edit->fetch(PDO::FETCH_ASSOC);
-}
-
-// واکشی قوانین ثبت شده
-$rules = $pdo->query("
-    SELECT r.*, s.StationName 
-    FROM tbl_planning_station_capacity_rules r
-    JOIN tbl_stations s ON r.StationID = s.StationID
-    ORDER BY s.StationName
-")->fetchAll(PDO::FETCH_ASSOC);
-
-$pageTitle = "مدیریت قوانین محاسبه ظرفیت";
-include __DIR__ . '/../../templates/header.php';
 ?>
 
-<div class="page-header d-flex justify-content-between align-items-center">
-    <h1 class="h3 mb-0"><?php echo $pageTitle; ?></h1>
-    <a href="<?php echo BASE_URL; ?>modules/planning/constraints_index.php" class="btn btn-outline-secondary">
-        <i class="bi bi-arrow-right"></i> بازگشت
-    </a>
-</div>
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-12">
+            
+            <!-- Card: انتخاب ایستگاه -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">مدیریت ظرفیت و محدودیت‌های ایستگاه</h5>
+                    <a href="index.php" class="btn btn-sm btn-outline-secondary">
+                        <i class="fas fa-arrow-left"></i> بازگشت به برنامه‌ریزی
+                    </a>
+                </div>
+                <div class="card-body">
+                    <p>لطفاً ایستگاه تولیدی را که می‌خواهید ظرفیت آن را تنظیم کنید، انتخاب نمایید.</p>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <label for="station-select" class="form-label">انتخاب ایستگاه:</label>
+                            <select id="station-select" class="form-select">
+                                <option value="">-- یک ایستگاه را انتخاب کنید --</option>
+                                <?php foreach ($stations as $station): ?>
+                                    <option value="<?php echo $station['StationID']; ?>" <?php echo ($station['StationID'] == $selected_station_id) ? 'selected' : ''; ?>>
+                                        <?php echo htmlspecialchars($station['StationName']); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
-<p class="lead mt-3">در این صفحه، "قوانین" محاسبه ظرفیت را برای هر ایستگاه تعریف کنید. این قوانین مشخص می‌کنند که ظرفیت پیشنهادی سیستم چگونه محاسبه شود.</p>
+            <!-- Card: فرم داینامیک تنظیمات -->
+            <?php if ($selected_station_id > 0): ?>
+            <div id="dynamic-form-container">
+                <div class="card shadow-sm mb-4">
+                    <div class="card-header"><h5 class="mb-0">تنظیمات ظرفیت برای: <?php echo htmlspecialchars($selected_station_name); ?></h5></div>
+                    <div class="card-body">
+                        
+                        <form id="capacity-form">
+                            <input type="hidden" name="station_id" value="<?php echo $selected_station_id; ?>">
+                            
+                            <?php
+                            try {
+                                switch ($selected_station_id) {
+                                    
+                                    // --- ایستگاه پرسکاری (2) و پیچ‌سازی (6) ---
+                                    case 2: // پرسکاری
+                                    case 6: // پیچ سازی
+                                        $machine_type = ($selected_station_id == 2) ? 'پرس' : 'پیچ سازی';
+                                        ?>
+                                        <input type="hidden" name="form_type" value="OEE_Machine">
+                                        <h3>تنظیمات ظرفیت مبتنی بر OEE</h3>
+                                        <p>زمان در دسترس و راندمان (OEE) را وارد کنید تا ظرفیت به صورت خودکار محاسبه شود.</p>
+                                        
+                                        <?php
+                                        $stmt_machines = $pdo->prepare("SELECT MachineID, MachineName, strokes_per_minute FROM tbl_machines WHERE MachineType = ? AND Status = 'Active' ORDER BY MachineName");
+                                        $stmt_machines->execute([$machine_type]);
+                                        $machines = $stmt_machines->fetchAll(PDO::FETCH_ASSOC);
 
-<?php if ($message): ?>
-<div class="alert alert-<?php echo $message_type; ?> alert-dismissible fade show" role="alert">
-    <?php echo htmlspecialchars($message); ?>
-    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-</div>
-<?php endif; ?>
+                                        $stmt_rules = $pdo->prepare("SELECT MachineID, StandardValue, FinalCapacity FROM tbl_planning_station_capacity_rules WHERE StationID = ? AND CalculationMethod = 'OEE'");
+                                        $stmt_rules->execute([$selected_station_id]);
+                                        $rules_raw = $stmt_rules->fetchAll(PDO::FETCH_GROUP);
+                                        
+                                        $rules = [];
+                                        foreach ($rules_raw as $key => $value) {
+                                            $rules[$key] = $value[0]; // [MachineID => ['StandardValue' => OEE, 'FinalCapacity' => AvailableTime]]
+                                        }
+                                        ?>
+                                        
+                                        <table class="table table-striped table-bordered">
+                                            <thead>
+                                                <tr>
+                                                    <th>نام دستگاه</th>
+                                                    <th>ضرب در دقیقه (SPM)</th>
+                                                    <th>زمان در دسترس (دقیقه)</th>
+                                                    <th>راندمان (OEE) %</th>
+                                                    <th>ظرفیت محاسبه شده (قطعه/روز)</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                            <?php foreach ($machines as $machine):
+                                                $machine_id = $machine['MachineID'];
+                                                $spm = floatval($machine['strokes_per_minute'] ?? 0);
+                                                $existing_oee = isset($rules[$machine_id]['StandardValue']) ? floatval($rules[$machine_id]['StandardValue']) : 80;
+                                                $existing_time = isset($rules[$machine_id]['FinalCapacity']) ? floatval($rules[$machine_id]['FinalCapacity']) : 480;
+                                                
+                                                $calculated_capacity = ($spm * $existing_time) * ($existing_oee / 100);
+                                            ?>
+                                                <tr>
+                                                    <td><?php echo htmlspecialchars($machine['MachineName']); ?></td>
+                                                    <td><?php echo $spm; ?></td>
+                                                    <td><input type="number" class="form-control capacity-input" name="rules[<?php echo $machine_id; ?>][available_time]" value="<?php echo $existing_time; ?>" data-spm="<?php echo $spm; ?>"></td>
+                                                    <td><input type="number" class="form-control capacity-input" name="rules[<?php echo $machine_id; ?>][oee]" value="<?php echo $existing_oee; ?>" data-spm="<?php echo $spm; ?>"></td>
+                                                    <td class="calculated-capacity"><?php echo number_format($calculated_capacity, 0); ?></td>
+                                                    <input type="hidden" name="rules[<?php echo $machine_id; ?>][spm]" value="<?php echo $spm; ?>">
+                                                </tr>
+                                            <?php endforeach; ?>
+                                            </tbody>
+                                        </table>
+                                        <?php
+                                        break;
 
-<!-- Form Card -->
-<div class="card content-card shadow-sm mb-4">
-    <div class="card-header">
-        <h5 class="mb-0"><?php echo $editMode ? 'ویرایش قانون ظرفیت' : 'افزودن قانون ظرفیت جدید'; ?></h5>
-    </div>
-    <div class="card-body">
-        <form method="POST" action="manage_station_capacity.php">
-            <?php if ($editMode && $itemToEdit): ?>
-                <input type="hidden" name="<?php echo PRIMARY_KEY; ?>" value="<?php echo $itemToEdit[PRIMARY_KEY]; ?>">
+                                    // --- ایستگاه مونتاژ (12) ---
+                                    case 12: // مونتاژ
+                                        ?>
+                                        <input type="hidden" name="form_type" value="Assembly">
+                                        <h3>تنظیمات ظرفیت مونتاژ</h3>
+                                        <p>ظرفیت را برای دو نوع دستگاه مونتاژ (کوچک و بزرگ) به صورت مجزا وارد کنید.</p>
+                                        <?php
+                                        $stmt_rules = $pdo->prepare("SELECT CalculationMethod, FinalCapacity FROM tbl_planning_station_capacity_rules WHERE StationID = ? AND (CalculationMethod = 'AssemblySmall' OR CalculationMethod = 'AssemblyLarge')");
+                                        $stmt_rules->execute([$selected_station_id]);
+                                        $rules = $stmt_rules->fetchAll(PDO::FETCH_KEY_PAIR); 
+
+                                        $capacity_small = isset($rules['AssemblySmall']) ? htmlspecialchars($rules['AssemblySmall']) : '70000';
+                                        $capacity_large = isset($rules['AssemblyLarge']) ? htmlspecialchars($rules['AssemblyLarge']) : '';
+                                        ?>
+                                        <div class="row">
+                                            <div class="col-md-6 mb-3">
+                                                <label class="form-label">ظرفیت دستگاه‌های مونتاژ کوچک (قطعه/روز)</label>
+                                                <input type="number" class="form-control" name="rules[AssemblySmall][capacity]" value="<?php echo $capacity_small; ?>">
+                                            </div>
+                                            <div class="col-md-6 mb-3">
+                                                <label class="form-label">ظرفیت دستگاه‌های مونتاژ بزرگ (قطعه/روز)</label>
+                                                <input type="number" class="form-control" name="rules[AssemblyLarge][capacity]" value="<?php echo $capacity_large; ?>">
+                                            </div>
+                                        </div>
+                                        <?php
+                                        break;
+
+                                    // --- ایستگاه دنده زنی (3) و رول (5) ---
+                                    case 3: // دنده زنی
+                                    case 5: // رول
+                                        $method = ($selected_station_id == 3) ? 'Gearing' : 'Rolling';
+                                        ?>
+                                        <input type="hidden" name="form_type" value="<?php echo $method; ?>_Part">
+                                        <h3>تنظیمات ظرفیت <?php echo $selected_station_name; ?> (بر اساس محصول)</h3>
+                                        <p>ظرفیت تولید (کیلوگرم در روز) را برای هر محصول مشخص کنید.</p>
+                                        
+                                        <table class="table table-bordered" id="product-capacity-table">
+                                            <thead><tr><th>محصول</th><th>ظرفیت (KG/Day)</th><th>عملیات</th></tr></thead>
+                                            <tbody>
+                                            <?php
+                                            // حالا که دستگاه مهم نیست، دیگر به ماشین‌ها join نمی‌زنیم
+                                            $stmt_rules = $pdo->prepare("
+                                                SELECT r.RuleID, r.PartID, r.FinalCapacity, p.PartName, p.FamilyID
+                                                FROM tbl_planning_station_capacity_rules r
+                                                LEFT JOIN tbl_parts p ON p.PartID = r.PartID
+                                                WHERE r.StationID = ? AND r.CalculationMethod = ?
+                                            ");
+                                            $stmt_rules->execute([$selected_station_id, $method]);
+                                            $rules = $stmt_rules->fetchAll(PDO::FETCH_ASSOC);
+
+                                            foreach ($rules as $rule):
+                                            ?>
+                                                <tr id="rule-row-<?php echo $rule['RuleID']; ?>">
+                                                     <td><?php echo htmlspecialchars($rule['PartName'] ?? 'N/A'); ?></td>
+                                                     <td><input type="number" class="form-control" name="rules[<?php echo $rule['RuleID']; ?>][capacity]" value="<?php echo htmlspecialchars($rule['FinalCapacity']); ?>"></td>
+                                                     <td>
+                                                        <button type="button" class="btn btn-sm btn-info edit-row-btn" 
+                                                            data-bs-toggle="modal" data-bs-target="#addRuleModal"
+                                                            data-rule-id="<?php echo $rule['RuleID']; ?>"
+                                                            data-family-id="<?php echo $rule['FamilyID']; ?>"
+                                                            data-part-id="<?php echo $rule['PartID']; ?>"
+                                                            data-capacity="<?php echo htmlspecialchars($rule['FinalCapacity']); ?>">
+                                                            ویرایش
+                                                        </button>
+                                                        <button type="button" class="btn btn-sm btn-danger delete-row-btn" data-rule-id="<?php echo $rule['RuleID']; ?>">حذف</button>
+                                                     </td>
+                                                </tr>
+                                            <?php
+                                            endforeach;
+                                            ?>
+                                            </tbody>
+                                        </table>
+                                        <button type="button" class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#addRuleModal" id="add-new-rule-btn">
+                                            افزودن ردیف جدید
+                                        </button>
+                                        <?php
+                                        break;
+
+                                    // --- ایستگاه آبکاری (4) ---
+                                    case 4: // آبکاری
+                                        ?>
+                                        <input type="hidden" name="form_type" value="Plating">
+                                        <h3>تنظیمات ظرفیت آبکاری</h3>
+                                        <p>ظرفیت کل ایستگاه آبکاری را بر اساس واحد مورد نظر وارد کنید.</p>
+                                        <?php
+                                        $stmt_rule = $pdo->prepare("SELECT FinalCapacity, CapacityUnit FROM tbl_planning_station_capacity_rules WHERE StationID = ? AND CalculationMethod = 'PlatingManHours' LIMIT 1");
+                                        $stmt_rule->execute([$selected_station_id]);
+                                        $rule = $stmt_rule->fetch(PDO::FETCH_ASSOC);
+
+                                        $capacity = $rule ? htmlspecialchars($rule['FinalCapacity']) : '';
+                                        $unit = $rule ? htmlspecialchars($rule['CapacityUnit']) : 'KG/ManHour';
+                                        ?>
+                                        <div class="row">
+                                            <div class="col-md-6 mb-3">
+                                                <label class="form-label">ظرفیت</label>
+                                                <input type="number" class="form-control" name="rules[PlatingManHours][capacity]" value="<?php echo $capacity; ?>">
+                                            </div>
+                                            <div class="col-md-6 mb-3">
+                                                <label class="form-label">واحد ظرفیت</label>
+                                                <select class="form-select" name="rules[PlatingManHours][unit]">
+                                                    <option value="KG/ManHour" <?php echo ($unit == 'KG/ManHour' ? 'selected' : ''); ?>>کیلوگرم بر نفر ساعت</option>
+                                                    <option value="Barrels/ManHour" <?php echo ($unit == 'Barrels/ManHour' ? 'selected' : ''); ?>>بارل بر نفر ساعت</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <?php
+                                        break;
+
+                                    // --- ایستگاه بسته‌بندی (10) ---
+                                    case 10: // بسته بندی
+                                        ?>
+                                        <input type="hidden" name="form_type" value="Packaging">
+                                        <h3>تنظیمات ظرفیت بسته‌بندی</h3>
+                                        <p>ظرفیت کل ایستگاه بسته‌بندی را بر اساس "کارتن در روز" وارد کنید.</p>
+                                        <?php
+                                        $stmt_rule = $pdo->prepare("SELECT FinalCapacity FROM tbl_planning_station_capacity_rules WHERE StationID = ? AND CalculationMethod = 'Packaging' LIMIT 1");
+                                        $stmt_rule->execute([$selected_station_id]);
+                                        $capacity = $stmt_rule->fetchColumn();
+                                        ?>
+                                        <div class="row">
+                                            <div class="col-md-6 mb-3">
+                                                <label class="form-label">ظرفیت (کارتن در روز)</label>
+                                                <input type="number" class="form-control" name="rules[Packaging][capacity]" value="<?php echo htmlspecialchars($capacity ?: ''); ?>">
+                                                <input type="hidden" name="rules[Packaging][unit]" value="Cartons/Day">
+                                            </div>
+                                        </div>
+                                        <?php
+                                        break;
+
+                                    // --- سایر ایستگاه‌ها (ظرفیت ثابت) ---
+                                    default:
+                                        ?>
+                                        <input type="hidden" name="form_type" value="FixedAmount">
+                                        <h3>تنظیمات ظرفیت ثابت</h3>
+                                        <p>یک ظرفیت ثابت (پیش‌فرض) برای این ایستگاه وارد کنید.</p>
+                                        <?php
+                                        $stmt_rule = $pdo->prepare("SELECT FinalCapacity, CapacityUnit FROM tbl_planning_station_capacity_rules WHERE StationID = ? AND CalculationMethod = 'FixedAmount' LIMIT 1");
+                                        $stmt_rule->execute([$selected_station_id]);
+                                        $rule = $stmt_rule->fetch(PDO::FETCH_ASSOC);
+
+                                        $capacity = $rule ? htmlspecialchars($rule['FinalCapacity']) : '';
+                                        $unit = $rule ? htmlspecialchars($rule['CapacityUnit']) : 'KG/Day';
+                                        
+                                        $common_units = ['KG/Day', 'Pieces/Day', 'Cartons/Day', 'KG/ManHour', 'Barrels/ManHour'];
+                                        ?>
+                                        <div class="row">
+                                            <div class="col-md-6 mb-3">
+                                                <label class="form-label">ظرفیت</label>
+                                                <input type="number" class="form-control" name="rules[FixedAmount][capacity]" value="<?php echo $capacity; ?>">
+                                            </div>
+                                            <div class="col-md-6 mb-3">
+                                                <label class="form-label">واحد ظرفیت</label>
+                                                <select class="form-select" name="rules[FixedAmount][unit]">
+                                                    <?php
+                                                    foreach ($common_units as $common_unit) {
+                                                        echo "<option value='{$common_unit}' " . ($unit == $common_unit ? 'selected' : '') . ">{$common_unit}</option>";
+                                                    }
+                                                    // اگر واحد ذخیره شده در لیست رایج نبود، آن را به عنوان یک گزینه اضافه کن
+                                                    if (!in_array($unit, $common_units) && !empty($unit)) {
+                                                        echo "<option value='{$unit}' selected>{$unit} (سفارشی)</option>";
+                                                    }
+                                                    ?>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <?php
+                                        break;
+                                }
+                            } catch (Exception $e) {
+                                echo '<div class="alert alert-danger">خطای سیستمی: ' . $e->getMessage() . '</div>';
+                            }
+                            ?>
+                            
+                            <hr>
+                            <button type="submit" class="btn btn-primary">ذخیره تغییرات</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
             <?php endif; ?>
             
-            <div class="row g-3">
-                <div class="col-md-4">
-                    <label for="station_id" class="form-label">ایستگاه <span class="text-danger">*</span></label>
-                    <select class="form-select" id="station_id" name="station_id" required>
-                        <option value="">-- انتخاب ایستگاه --</option>
-                        <?php foreach ($stations as $station): ?>
-                            <option value="<?php echo $station['StationID']; ?>" 
-                                <?php echo ($editMode && $itemToEdit && $itemToEdit['StationID'] == $station['StationID']) ? 'selected' : ''; ?>>
-                                <?php echo htmlspecialchars($station['StationName']); ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-                
-                <div class="col-md-4">
-                    <label for="calculation_method" class="form-label">متد محاسبه ظرفیت <span class="text-danger">*</span></label>
-                    <select class="form-select" id="calculation_method" name="calculation_method" required>
-                        <?php foreach ($calculation_methods as $key => $label): ?>
-                            <option value="<?php echo $key; ?>" 
-                                <?php echo ($editMode && $itemToEdit && $itemToEdit['CalculationMethod'] == $key) ? 'selected' : ''; ?>>
-                                <?php echo htmlspecialchars($label); ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-                
-                <div class="col-md-4">
-                    <label for="capacity_unit" class="form-label">واحد ظرفیت <span class="text-danger">*</span></label>
-                    <select class="form-select" id="capacity_unit" name="capacity_unit" required>
-                        <?php foreach ($capacity_units as $key => $label): ?>
-                            <option value="<?php echo $key; ?>" 
-                                <?php echo ($editMode && $itemToEdit && $itemToEdit['CapacityUnit'] == $key) ? 'selected' : ''; ?>>
-                                <?php echo htmlspecialchars($label); ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-
-                <div class="col-md-12">
-                    <label for="standard_value" class="form-label">مقدار استاندارد (پیش‌فرض)</label>
-                    <input type="number" step="0.01" class="form-control" id="standard_value" name="standard_value" 
-                           value="<?php echo htmlspecialchars($itemToEdit['StandardValue'] ?? ''); ?>" 
-                           placeholder="مقدار ثابت (در صورت استفاده از متد FixedAmount)">
-                    <small class="form-text text-muted">اگر متد "مقدار ثابت" باشد، این عدد استفاده می‌شود. برای سایر متدها به عنوان پشتیبان عمل می‌کند.</small>
-                </div>
-
-                <div class="col-md-12">
-                    <label for="notes" class="form-label">یادداشت</label>
-                    <textarea class="form-control" id="notes" name="notes" rows="2"><?php echo htmlspecialchars($itemToEdit['Notes'] ?? ''); ?></textarea>
-                </div>
-            </div>
-            
-            <div class="mt-4">
-                <button type="submit" class="btn btn-<?php echo $editMode ? 'primary' : 'success'; ?>">
-                    <i class="bi bi-<?php echo $editMode ? 'pencil' : 'check2-circle'; ?>"></i> 
-                    <?php echo $editMode ? 'بروزرسانی قانون' : 'افزودن قانون'; ?>
-                </button>
-                <?php if ($editMode): ?>
-                    <a href="manage_station_capacity.php" class="btn btn-outline-secondary">انصراف از ویرایش</a>
-                <?php endif; ?>
-            </div>
-        </form>
-    </div>
-</div>
-
-<!-- Table Card -->
-<div class="card content-card shadow-sm">
-    <div class="card-header">
-        <h5 class="mb-0">قوانین ظرفیت تعریف شده</h5>
-    </div>
-    <div class="card-body">
-        <div class="table-responsive">
-            <table class="table table-striped table-hover">
-                <thead class="table-light">
-                    <tr>
-                        <th>ایستگاه</th>
-                        <th>متد محاسبه</th>
-                        <th>مقدار استاندارد</th>
-                        <th>واحد ظرفیت</th>
-                        <th>یادداشت</th>
-                        <th>عملیات</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php if (empty($rules)): ?>
-                        <tr>
-                            <td colspan="6" class="text-center text-muted py-4">
-                                <i class="bi bi-inbox fs-1 d-block mb-2"></i>
-                                هیچ قانونی تعریف نشده است.
-                            </td>
-                        </tr>
-                    <?php else: ?>
-                        <?php foreach ($rules as $rule): ?>
-                            <tr>
-                                <td><?php echo htmlspecialchars($rule['StationName']); ?></td>
-                                <td>
-                                    <span class="badge bg-info">
-                                        <?php echo htmlspecialchars($calculation_methods[$rule['CalculationMethod']] ?? $rule['CalculationMethod']); ?>
-                                    </span>
-                                </td>
-                                <td><?php echo $rule['StandardValue'] ? number_format($rule['StandardValue'], 2) : '-'; ?></td>
-                                <td>
-                                    <span class="badge bg-secondary">
-                                        <?php echo htmlspecialchars($capacity_units[$rule['CapacityUnit']] ?? $rule['CapacityUnit']); ?>
-                                    </span>
-                                </td>
-                                <td class="small"><?php echo htmlspecialchars($rule['Notes']) ?: '-'; ?></td>
-                                <td>
-                                    <a href="?edit_id=<?php echo $rule[PRIMARY_KEY]; ?>" 
-                                       class="btn btn-sm btn-outline-primary" title="ویرایش">
-                                        <i class="bi bi-pencil"></i>
-                                    </a>
-                                    <form method="POST" action="manage_station_capacity.php" class="d-inline" 
-                                          onsubmit="return confirm('آیا از حذف این قانون مطمئن هستید؟');">
-                                        <input type="hidden" name="delete_id" value="<?php echo $rule[PRIMARY_KEY]; ?>">
-                                        <button type="submit" class="btn btn-sm btn-outline-danger" title="حذف">
-                                            <i class="bi bi-trash"></i>
-                                        </button>
-                                    </form>
-                                </td>
-                            </tr>
-                        <?php endforeach; ?>
-                    <?php endif; ?>
-                </tbody>
-            </table>
+            <div id="form-message" class="mt-3"></div> 
         </div>
     </div>
 </div>
 
-<?php include __DIR__ . '/../../templates/footer.php'; ?>
+<!-- Modal: افزودن / ویرایش ردیف برای رول / دنده زنی -->
+<div class="modal fade" id="addRuleModal" tabindex="-1" aria-labelledby="addRuleModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addRuleModalLabel">افزودن قانون ظرفیت جدید</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="add-rule-form">
+                    <input type="hidden" name="station_id" value="<?php echo $selected_station_id; ?>">
+                    <input type="hidden" name="form_type" value="<?php echo ($selected_station_id == 3) ? 'Gearing_Part_Add' : 'Rolling_Part_Add'; ?>">
+                    <!-- فیلد مخفی برای ویرایش -->
+                    <input type="hidden" id="modal-rule-id" name="rule_id" value=""> 
+                    
+                    <div class="mb-3">
+                        <label for="modal-family" class="form-label">خانواده محصول</label>
+                        <select id="modal-family" name="family_id" class="form-select" required>
+                            <option value="">-- انتخاب خانواده --</option>
+                            <?php
+                            foreach ($all_families as $family) {
+                                echo "<option value='{$family['FamilyID']}'>" . htmlspecialchars($family['FamilyName']) . "</option>";
+                            }
+                            ?>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="modal-part" class="form-label">نام محصول</label>
+                        <select id="modal-part" name="part_id" class="form-select" required disabled>
+                            <option value="">-- ابتدا خانواده را انتخاب کنید --</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="modal-capacity" class="form-label">ظرفیت (KG/Day)</label>
+                        <input type="number" id="modal-capacity" name="capacity" class="form-control" required>
+                    </div>
+                </form>
+                <div id="modal-message"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">انصراف</button>
+                <button type="button" class="btn btn-primary" id="save-new-rule-btn">ذخیره</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<?php include_once '../../templates/footer.php'; ?>
+
+<script>
+// متغیر سراسری برای نگهداری پارت آی‌دی در حالت ویرایش
+var partIdToSelectOnLoad = null;
+
+$(document).ready(function() {
+    
+    // --- بارگیری صفحه بر اساس انتخاب ایستگاه ---
+    $('#station-select').on('change', function() {
+        var stationId = $(this).val();
+        if (stationId) {
+            window.location.href = 'manage_station_capacity.php?station_id=' + stationId;
+        } else {
+            window.location.href = 'manage_station_capacity.php';
+        }
+    });
+
+    // --- محاسبه خودکار ظرفیت OEE ---
+    $('#dynamic-form-container').on('input', '.capacity-input', function() {
+        var $row = $(this).closest('tr');
+        var spm = parseFloat($row.find('input[name*="[spm]"]').val());
+        var time = parseFloat($row.find('input[name*="[available_time]"]').val());
+        var oee = parseFloat($row.find('input[name*="[oee]"]').val());
+
+        if (!isNaN(spm) && !isNaN(time) && !isNaN(oee)) {
+            var capacity = (spm * time) * (oee / 100);
+            $row.find('.calculated-capacity').text(capacity.toLocaleString('fa-IR', { maximumFractionDigits: 0 }));
+        } else {
+            $row.find('.calculated-capacity').text('---');
+        }
+    });
+
+    // --- منطق مودال افزودن/ویرایش ردیف (رول / دنده زنی) ---
+
+    // 1. بارگیری محصولات بر اساس خانواده (رفع باگ)
+    $('#modal-family').on('change', function() {
+        var familyId = $(this).val();
+        var $partSelect = $('#modal-part');
+        $partSelect.prop('disabled', true).html('<option value="">در حال بارگیری...</option>');
+
+        if (!familyId) {
+            $partSelect.html('<option value="">-- ابتدا خانواده را انتخاب کنید --</option>');
+            return;
+        }
+
+        $.ajax({
+            url: '../../api/get_parts_for_modal.php', // API جدید و تمیز
+            type: 'GET',
+            data: { family_id: familyId },
+            dataType: 'json',
+            success: function(response) {
+                if (response.success && response.parts.length > 0) {
+                    var options = '<option value="">-- محصول را انتخاب کنید --</option>';
+                    response.parts.forEach(function(part) {
+                        options += '<option value="' + part.PartID + '">' + part.PartName + '</option>';
+                    });
+                    $partSelect.html(options).prop('disabled', false);
+                    
+                    // اگر در حالت ویرایش بودیم، پارت مورد نظر را انتخاب کن
+                    if (partIdToSelectOnLoad) {
+                        $partSelect.val(partIdToSelectOnLoad);
+                        partIdToSelectOnLoad = null; // متغیر را پاک کن
+                    }
+                } else {
+                    $partSelect.html('<option value="">هیچ محصولی یافت نشد</option>');
+                }
+            },
+            error: function(xhr) {
+                $partSelect.html('<option value="">خطا در بارگیری: ' + xhr.responseText + '</option>');
+            }
+        });
+    });
+
+    // 2. آماده‌سازی مودال برای "افزودن جدید"
+    $('#add-new-rule-btn').on('click', function() {
+        $('#addRuleModalLabel').text('افزودن قانون ظرفیت جدید');
+        $('#save-new-rule-btn').text('ذخیره');
+        $('#modal-rule-id').val(''); // اطمینان از خالی بودن آی‌دی
+        $('#add-rule-form')[0].reset();
+        $('#modal-part').prop('disabled', true).html('<option value="">-- ابتدا خانواده را انتخاب کنید --</option>');
+    });
+
+    // 3. آماده‌سازی مودال برای "ویرایش"
+    $('#product-capacity-table').on('click', '.edit-row-btn', function() {
+        var ruleId = $(this).data('rule-id');
+        var familyId = $(this).data('family-id');
+        var partId = $(this).data('part-id');
+        var capacity = $(this).data('capacity');
+
+        // تنظیم متغیر سراسری تا پس از لود شدن پارت‌ها، انتخاب شود
+        partIdToSelectOnLoad = partId;
+
+        $('#addRuleModalLabel').text('ویرایش قانون ظرفیت');
+        $('#save-new-rule-btn').text(' به‌روزرسانی');
+        
+        $('#modal-rule-id').val(ruleId);
+        $('#modal-capacity').val(capacity);
+        
+        // خانواده را انتخاب کن و رویداد change را فعال کن تا پارت‌ها لود شوند
+        $('#modal-family').val(familyId).trigger('change');
+    });
+
+    // 4. ذخیره (افزودن یا ویرایش)
+    $('#save-new-rule-btn').on('click', function() {
+        var $form = $('#add-rule-form');
+        var $message = $('#modal-message');
+        var $thisBtn = $(this);
+
+        $thisBtn.prop('disabled', true);
+        $message.html('<div class="alert alert-info">در حال ذخیره...</div>');
+
+        $.ajax({
+            type: 'POST',
+            url: '../../api/save_capacity_rules.php', 
+            data: $form.serialize(),
+            dataType: 'json',
+            success: function(response) {
+                if (response.success) {
+                    $message.html('<div class="alert alert-success">عملیات با موفقیت انجام شد. صفحه دوباره بارگیری می‌شود...</div>');
+                    setTimeout(function() {
+                        window.location.reload();
+                    }, 1500);
+                } else {
+                    $message.html('<div class="alert alert-danger">خطا: ' + response.error + '</div>');
+                    $thisBtn.prop('disabled', false);
+                }
+            },
+            error: function(xhr) {
+                $message.html('<div class="alert alert-danger">خطای سرور: ' + xhr.responseText + '</div>');
+                $thisBtn.prop('disabled', false);
+            }
+        });
+    });
+
+    // 5. پاک کردن مودال پس از بسته شدن
+    $('#addRuleModal').on('hidden.bs.modal', function () {
+        $('#add-rule-form')[0].reset();
+        $('#modal-rule-id').val('');
+        $('#modal-part').prop('disabled', true).html('<option value="">-- ابتدا خانواده را انتخاب کنید --</option>');
+        $('#modal-message').html('');
+        $('#save-new-rule-btn').prop('disabled', false).text('ذخیره');
+        $('#addRuleModalLabel').text('افزودن قانون ظرفیت جدید');
+        partIdToSelectOnLoad = null; // پاک کردن متغیر سراسری
+    });
+
+    // --- حذف ردیف (رول / دنده زنی) ---
+    $('#product-capacity-table').on('click', '.delete-row-btn', function() {
+        var ruleId = $(this).data('rule-id');
+        var $row = $('#rule-row-' + ruleId);
+        
+        if (confirm('آیا از حذف این قانون مطمئن هستید؟')) {
+            $.ajax({
+                type: 'POST',
+                url: '../../api/delete_capacity_rule.php', 
+                data: { rule_id: ruleId },
+                dataType: 'json',
+                success: function(response) {
+                    if (response.success) {
+                        $row.fadeOut(300, function() { $(this).remove(); });
+                    } else {
+                        alert('خطا در حذف: ' + response.error);
+                    }
+                },
+                error: function(xhr) {
+                    alert('خطای سرور: ' + xhr.responseText);
+                }
+            });
+        }
+    });
+
+    // --- ذخیره فرم اصلی ---
+    $('#dynamic-form-container').on('submit', '#capacity-form', function(e) {
+        e.preventDefault();
+        var formData = $(this).serialize();
+        var $formMessage = $('#form-message');
+        
+        $formMessage.html('<div class="alert alert-info">در حال ذخیره...</div>').removeClass('alert-danger alert-success');
+
+        $.ajax({
+            type: 'POST',
+            url: '../../api/save_capacity_rules.php', 
+            data: formData,
+            dataType: 'json',
+            success: function(response) {
+                if (response.success) {
+                    $formMessage.html('<div class="alert alert-success">تغییرات با موفقیت ذخیره شد.</div>');
+                } else {
+                    $formMessage.html('<div class="alert alert-danger">خطا در ذخیره‌سازی: ' + response.error + '</div>');
+                }
+            },
+            error: function(xhr) {
+                $formMessage.html('<div class="alert alert-danger">خطای ارتباط با سرور: ' + xhr.responseText + '</div>');
+            }
+        });
+    });
+});
+</script>
+

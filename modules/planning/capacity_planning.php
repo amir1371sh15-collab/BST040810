@@ -124,7 +124,7 @@ $(document).ready(function() {
         $('#saveResult').html('');
 
         $.ajax({
-            url: '<?php echo BASE_URL; ?>api/api_get_suggested_capacity.php',
+            url: '<?php echo BASE_URL; ../../api/api_get_suggested_capacity.php',
             type: 'POST',
             data: {
                 planning_date: date,
@@ -173,7 +173,7 @@ $(document).ready(function() {
         $('#saveResult').html('');
 
         $.ajax({
-            url: '<?php echo BASE_URL; ?>api/api_save_capacity_override.php',
+            url: ../../api/api_save_capacity_override.php',
             type: 'POST',
             data: $(this).serialize(),
             dataType: 'json',

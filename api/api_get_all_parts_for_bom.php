@@ -4,11 +4,17 @@ require_once __DIR__ . '/../config/init.php';
 
 $response = ['success' => false, 'data' => null, 'message' => ''];
 
-if (!has_permission('planning.manage')) {
+// --- FIX: Allow access if user has permission for BOM, general Planning, or Planning Constraints ---
+if (
+    !has_permission('planning.bom.manage') && 
+    !has_permission('planning.manage') && 
+    !has_permission('planning_constraints.manage')
+) {
     http_response_code(403);
     $response['message'] = 'شما مجوز دسترسی به این اطلاعات را ندارید.';
     echo json_encode($response, JSON_UNESCAPED_UNICODE); exit;
 }
+// --- END FIX ---
 
 $exclude_part_id = filter_input(INPUT_GET, 'exclude_part_id', FILTER_VALIDATE_INT) ?: null;
 $family_id = filter_input(INPUT_GET, 'family_id', FILTER_VALIDATE_INT) ?: null; // New filter
@@ -64,4 +70,3 @@ try {
 
 echo json_encode($response, JSON_UNESCAPED_UNICODE);
 ?>
-
