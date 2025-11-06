@@ -22,24 +22,29 @@ include_once __DIR__ . '/../../templates/header.php';
             <div class="alert alert-info">
                 <h5 class="alert-heading"><i class="bi bi-info-circle-fill me-2"></i>راهنمای MRP (فاز ۱)</h5>
                 <p>
-                    <b>فاز ۱: محاسبه نیازمندی‌های خالص.</b>
-                    <br>
                     ۱. ابتدا داده‌های ورودی را بارگذاری کنید.
                     <br>
                     ۲. <b>فقط سفارشات مشتری (تقاضای خارجی)</b> مورد نظر خود را انتخاب کنید.
                     <br>
-                    ۳. با فشردن دکمه "اجرای MRP"، سیستم تمام سفارشات انتخابی را بر اساس BOM منفجر کرده (نیازمندی ناخالص) و با <b>کل موجودی‌های در دسترس</b> (شامل WIP، محصول نهایی و مواد خام) مقایسه می‌کند.
+                    ۳. با فشردن دکمه "اجرای MRP"، سیستم نیازمندی‌های خالص (کسری واقعی) را محاسبه می‌کند.
                     <br>
-                    ۴. نتیجه، لیستی از "نیازمندی‌های خالص" (کسری واقعی) خواهد بود.
+                    ۴. با فشردن دکمه "ذخیره نتایج"، کسری‌های محاسبه شده در دیتابیس ثبت می‌شوند و برای زمان‌بندی (فاز ۲) قابل استفاده خواهند بود.
                 </p>
             </div>
+            
+            <div id="mrp-metadata" data-run-id="" data-run-date="<?php echo date('Y-m-d H:i:s'); ?>"></div>
+
 
             <div class="mb-3">
                 <button id="load-data-btn" class="btn btn-primary btn-lg">
-                    <i class="bi bi-arrow-clockwise me-2"></i> بارگذاری داده‌های ورودی MRP
+                    <i class="bi bi-arrow-clockwise me-2"></i> ۱. بارگذاری داده‌های ورودی MRP
                 </button>
                 <button id="run-mrp-btn" class="btn btn-danger btn-lg" style="display: none;">
-                    <i class="bi bi-gear-wide-connected me-2"></i> <strong>اجرای MRP برای موارد انتخابی</strong>
+                    <i class="bi bi-gear-wide-connected me-2"></i> ۲. <strong>اجرای MRP برای موارد انتخابی</strong>
+                </button>
+                <button id="save-mrp-btn" class="btn btn-success btn-lg" style="display: none;" 
+                        <?php echo has_permission('planning.mrp.save_results') ? '' : 'disabled title="مجوز ذخیره نتایج را ندارید"'; ?>>
+                    <i class="bi bi-save me-2"></i> ۳. **ذخیره نتایج برای زمان‌بندی**
                 </button>
             </div>
 
@@ -103,6 +108,9 @@ include_once __DIR__ . '/../../templates/header.php';
                 <div class="card content-card">
                     <div class="card-header bg-danger text-white">
                         <h5 class="mb-0"><i class="bi bi-clipboard-data-fill me-2"></i>نتایج MRP (فاز ۱): نیازمندی‌های خالص</h5>
+                        <p class="mb-0 small text-light" id="mrp-run-status">
+                            <i class="bi bi-info-circle-fill"></i> برای ذخیره‌سازی نتایج، ابتدا باید اجرای MRP را انجام دهید.
+                        </p>
                     </div>
                     <div class="card-body p-0">
                         <div class="table-responsive">
@@ -159,7 +167,9 @@ $(document).ready(function() {
         });
     }
     setupSelectAll('#select-all-orders', '.order-item-select');
-
+    
+    // --- Global Data Store ---
+    let mrpResultsCache = []; // Caches all results, including those with NetRequirement <= 0
 
     // --- (Load Input Data) ---
     $('#load-data-btn').on('click', function() {
@@ -174,6 +184,7 @@ $(document).ready(function() {
         wipTbody.empty();
         $('#select-all-orders').prop('checked', false);
         $('#mrp-results-container').slideUp(); 
+        $('#save-mrp-btn').hide(); // Hide save button
 
         $.ajax({
             url: '../../api/get_mrp_inputs.php', 
@@ -202,11 +213,16 @@ $(document).ready(function() {
                     // 2. Populate WIP (Informational)
                     if (response.data.wip.length > 0) {
                         $.each(response.data.wip, function(i, item) {
+                            // Display logic (prioritize KG, use Carton if KG is zero)
+                            let quantityDisplay = (parseFloat(item.TotalNetWeightKG) > 0.01) 
+                                ? `${parseFloat(item.TotalNetWeightKG).toFixed(2)} KG`
+                                : `${parseInt(item.TotalCartonQuantity) || 0} کارتن`;
+                            
                             wipTbody.append(`
                                 <tr>
                                     <td class="p-3">${item.PartName}</td>
                                     <td class="p-3">${item.StatusName} (در ${item.StationName})</td>
-                                    <td class="p-3">${parseFloat(item.TotalNetWeightKG).toFixed(2)}</td>
+                                    <td class="p-3">${quantityDisplay}</td>
                                 </tr>
                             `);
                         });
@@ -216,26 +232,22 @@ $(document).ready(function() {
 
                     container.slideDown();
                     $('#run-mrp-btn').fadeIn();
-                    $this.fadeOut();
+                    $this.prop('disabled', false).html('<i class="bi bi-arrow-clockwise me-2"></i> ۱. بارگذاری داده‌های ورودی MRP');
 
                 } else {
                     alert('خطا در بارگذاری داده‌ها: ' + response.message);
-                    resetLoadButton();
+                    $this.prop('disabled', false).html('<i class="bi bi-arrow-clockwise me-2"></i> ۱. بارگذاری داده‌های ورودی MRP');
                 }
             },
             error: function(xhr) {
-                alert('خطای سیستمی در ارتباط با API. ' + (xhr.responseJSON ? xhr.responseJSON.message : ''));
-                resetLoadButton();
+                alert('خطای سیستمی در ارتباط با API. ' + (xhr.responseJSON ? xhr.responseJSON.message : xhr.statusText));
+                $this.prop('disabled', false).html('<i class="bi bi-arrow-clockwise me-2"></i> ۱. بارگذاری داده‌های ورودی MRP');
             }
         });
     });
 
-    function resetLoadButton() {
-        $('#load-data-btn').prop('disabled', false).html('<i class="bi bi-arrow-clockwise me-2"></i> بارگذاری داده‌های ورودی MRP').show();
-    }
 
-
-    // --- (Run MRP Calculation - LOGIC UPDATED) ---
+    // --- (Run MRP Calculation) ---
     $('#run-mrp-btn').on('click', function() {
         
         const $this = $(this);
@@ -250,52 +262,77 @@ $(document).ready(function() {
         }
 
         $this.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>در حال محاسبه نیازمندی‌های خالص...');
+        $('#mrp-results-tbody').empty();
         $('#mrp-results-container').slideUp();
+        $('#save-mrp-btn').hide();
         
         // Destroy old popovers before emptying
         $('#mrp-results-tbody [data-bs-toggle="popover"]').each(function() {
             var popover = bootstrap.Popover.getInstance(this);
-            if (popover) {
-                popover.dispose();
-            }
+            if (popover) { popover.dispose(); }
         });
         
-        const resultsTbody = $('#mrp-results-tbody').empty();
+        const resultsTbody = $('#mrp-results-tbody');
+        mrpResultsCache = []; // Clear old cache
 
         $.ajax({
             url: '../../api/run_mrp_calculation.php', 
             type: 'POST',
             data: JSON.stringify({ 
-                orders: selectedOrders 
+                orders: selectedOrders,
+                run_date: $('#mrp-metadata').data('run-date') // Send the current run date
             }),
             contentType: 'application/json; charset=utf-8',
             dataType: 'json',
             success: function(response) {
+                $this.prop('disabled', false).html('<i class="bi bi-gear-wide-connected me-2"></i> ۲. <strong>اجرای MRP برای موارد انتخابی</strong>');
+                
                 if (response.success) {
-                    if (response.data.net_requirements.length > 0) {
-                        $.each(response.data.net_requirements, function(i, item) {
+                    // *** FIX 1: Ensure response.data and response.data.full_report exist ***
+                    if (!response.data || !response.data.full_report) {
+                        $('#mrp-run-status').text(`محاسبه ناموفق. خطا: پاسخ API نامعتبر است (Missing full_report).`);
+                        return;
+                    }
+                    
+                    mrpResultsCache = response.data.full_report; // Cache the full report
+                    const netRequirements = response.data.net_requirements; // Only net shortage
+                    
+                    // Store RunID returned by the API
+                    // *** FIX 2: Check for run_id in response.data ***
+                    const runId = response.data.run_id;
+                    $('#mrp-metadata').data('run-id', runId); 
+                    
+                    $('#mrp-run-status').text(`محاسبه موفقیت‌آمیز. RunID: ${runId} | ${netRequirements.length} کسری یافت شد.`);
+
+                    if (netRequirements.length > 0) {
+                        $.each(netRequirements, function(i, item) {
                             
-                            // --- Build Popover Content ---
+                            // *** FIX 3: Ensure keys ItemType, ItemName, ItemStatusName exist (can be null/undefined) ***
+                            const itemType = item.ItemType || 'نامشخص';
+                            const itemName = item.ItemName || 'نامشخص';
+                            const itemStatusName = item.ItemStatusName || '';
+                            
+                            // --- Build Popover Content (Simplified check for clarity) ---
                             let popoverTitle = 'جزئیات موجودی';
                             let popoverContent = '';
                             let availableSupplyDisplay = '';
 
-                            if (item.Type === 'قطعه') {
-                                availableSupplyDisplay = parseInt(item.AvailableSupply).toLocaleString();
+                            if (item.ItemType !== 'ماده اولیه') {
+                                availableSupplyDisplay = parseInt(item.AvailableSupply || 0).toLocaleString();
                                 popoverContent = `
                                     <ul class="list-unstyled mb-0 small">
-                                        <li>موجودی (KG): <strong>${parseFloat(item.Supply_Source_KG).toFixed(2)}</strong></li>
-                                        <li>موجودی (کارتن): <strong>${parseInt(item.Supply_Source_Carton)}</strong></li>
-                                        <li>وزن واحد (GR): <strong>${parseFloat(item.Supply_Unit_Weight_GR).toFixed(3)}</strong></li>
+                                        <li>موجودی (KG): <strong>${parseFloat(item.Supply_Source_KG || 0).toFixed(2)}</strong></li>
+                                        <li>موجودی (کارتن): <strong>${parseInt(item.Supply_Source_Carton || 0)}</strong></li>
+                                        <li>وزن واحد (GR): <strong>${parseFloat(item.Supply_Unit_Weight_GR || 0).toFixed(3)}</strong></li>
                                         <hr class="my-1">
                                         <li><b>تعداد محاسبه شده: <strong>${availableSupplyDisplay}</strong></b></li>
                                     </ul>
                                 `;
                             } else { // Raw Material
-                                availableSupplyDisplay = parseFloat(item.AvailableSupply).toLocaleString();
+                                availableSupplyDisplay = parseFloat(item.AvailableSupply || 0).toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 3 });
                                 popoverContent = `
                                     <ul class="list-unstyled mb-0 small">
-                                        <li>موجودی (KG): <strong>${parseFloat(item.Supply_Source_KG).toFixed(2)}</strong></li>
+                                        <li>موجودی (KG): <strong>${parseFloat(item.Supply_Source_KG || 0).toFixed(2)}</strong></li>
                                         <hr class="my-1">
                                         <li><b>تعداد محاسبه شده: <strong>${availableSupplyDisplay}</strong></b></li>
                                     </ul>
@@ -305,9 +342,9 @@ $(document).ready(function() {
 
                             resultsTbody.append(`
                                 <tr>
-                                    <td class="p-3">${item.Type}</td>
-                                    <td class="p-3">${item.Name} (${item.Key})</td>
-                                    <td class="p-3">${parseFloat(item.GrossRequirement).toLocaleString()}</td>
+                                    <td class="p-3">${itemType}</td>
+                                    <td class="p-3">${itemName} ${itemStatusName ? `(${itemStatusName})` : ''}</td>
+                                    <td class="p-3">${parseFloat(item.GrossRequirement || 0).toLocaleString()}</td>
                                     <td class="p-3">
                                         <span class="text-primary"
                                             style="cursor: help; border-bottom: 1px dotted;"
@@ -319,7 +356,7 @@ $(document).ready(function() {
                                             ${availableSupplyDisplay}
                                         </span>
                                     </td>
-                                    <td class="p-3 text-danger fw-bold">${parseFloat(item.NetRequirement).toLocaleString()}</td>
+                                    <td class="p-3 text-danger fw-bold">${parseFloat(item.NetRequirement || 0).toLocaleString()}</td>
                                     <td class="p-3">${item.Unit}</td>
                                 </tr>
                             `);
@@ -331,27 +368,79 @@ $(document).ready(function() {
                           return new bootstrap.Popover(popoverTriggerEl)
                         });
                         
+                        $('#save-mrp-btn').fadeIn();
+
                     } else {
                         resultsTbody.append('<tr><td colspan="6" class="text-center text-success p-4">بر اساس سفارشات انتخابی، هیچ کسری موجودی یافت نشد.</td></tr>');
                     }
                     $('#mrp-results-container').slideDown();
                 } else {
                     alert('خطا در محاسبه MRP: ' + response.message);
+                    $('#mrp-run-status').text(`محاسبه ناموفق. خطا: ${response.message}`);
+                    $('#mrp-results-container').slideDown();
                 }
-                resetRunButton();
             },
             error: function(xhr) {
+                $this.prop('disabled', false).html('<i class="bi bi-gear-wide-connected me-2"></i> ۲. <strong>اجرای MRP برای موارد انتخابی</strong>');
                 let errorMsg = xhr.responseJSON ? xhr.responseJSON.message : 'پاسخ معتبری از سرور دریافت نشد.';
                 alert('خطای سیستمی در اجرای MRP. ' + errorMsg);
-                resetRunButton();
+                $('#mrp-run-status').text(`محاسبه ناموفق. خطای ارتباط: ${xhr.status}`);
             }
         });
     });
 
-    function resetRunButton() {
-        $('#run-mrp-btn').prop('disabled', false).html('<i class="bi bi-gear-wide-connected me-2"></i> <strong>اجرای MRP برای موارد انتخابی</strong>');
-    }
+    
+    // --- (Save MRP Results) ---
+    $('#save-mrp-btn').on('click', function() {
+        if ($(this).is(':disabled')) return;
+        
+        const runId = $('#mrp-metadata').data('run-id');
+        if (!runId || mrpResultsCache.length === 0) {
+            alert("لطفاً ابتدا اجرای MRP را انجام دهید.");
+            return;
+        }
+
+        const $this = $(this);
+        $this.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>در حال ذخیره‌سازی...');
+        
+        $.ajax({
+            url: '../../api/save_mrp_net_requirements.php', 
+            type: 'POST',
+            data: JSON.stringify({ 
+                run_id: runId,
+                run_date: $('#mrp-metadata').data('run-date'),
+                net_requirements: mrpResultsCache // Send the full cached list
+            }),
+            contentType: 'application/json; charset=utf-8',
+            dataType: 'json',
+            success: function(response) {
+                if (response.success) {
+                    alert(response.message);
+                    $('#mrp-run-status').html(`
+                         <i class="bi bi-check-circle-fill"></i> ${response.message}
+                         <span class="ms-3">
+                             <a href="production_schedule.php" class="btn btn-sm btn-light py-0 px-2">
+                                 برو به زمان‌بندی (فاز ۳)
+                             </a>
+                         </span>
+                     `);
+                    $this.hide();
+                    $('#run-mrp-btn').prop('disabled', false); // Allow re-run if needed
+                } else {
+                    alert('خطا در ذخیره نتایج: ' + response.message);
+                    $('#mrp-run-status').text(`ذخیره‌سازی ناموفق: ${response.message}`);
+                }
+            },
+            error: function(xhr) {
+                alert('خطای سیستمی هنگام ذخیره‌سازی. ' + (xhr.responseJSON ? xhr.responseJSON.message : xhr.statusText));
+                $('#mrp-run-status').text(`ذخیره‌سازی ناموفق: خطای ارتباط`);
+            },
+            complete: function() {
+                $this.prop('disabled', false).html('<i class="bi bi-save me-2"></i> ۳. **ذخیره نتایج برای زمان‌بندی**');
+            }
+        });
+    });
+
 
 });
 </script>
-

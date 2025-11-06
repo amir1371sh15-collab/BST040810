@@ -27,8 +27,16 @@ try {
     
     $sql .= " ORDER BY c.CategoryName, i.ItemName";
     
+    // The find_all function returns a flat array, which is exactly
+    // what the JavaScript in raw_stocktake.php expects.
     $items_raw = find_all($pdo, $sql, $params);
     
+    /* * --- BLOCK REMOVED (FIX) ---
+     * The grouping logic below was causing the error.
+     * The JavaScript in raw_stocktake.php expects a flat array (response.data)
+     * but this code was creating an object (response.data = {"CategoryName": [...]})
+     * which caused response.data.length to fail.
+     *
     // Group by category for <optgroup>
     $grouped_items = [];
     foreach ($items_raw as $item) {
@@ -42,9 +50,11 @@ try {
             'UnitSymbol' => $item['UnitSymbol']
         ];
     }
+    */
 
     $response['success'] = true;
-    $response['data'] = $grouped_items;
+    // (FIX) Assign the flat array ($items_raw) directly to the data property.
+    $response['data'] = $items_raw; 
 
 } catch (Exception $e) {
     error_log("API Get Raw Materials (BOM) Error: " . $e->getMessage());
@@ -54,4 +64,3 @@ try {
 
 echo json_encode($response, JSON_UNESCAPED_UNICODE);
 ?>
-

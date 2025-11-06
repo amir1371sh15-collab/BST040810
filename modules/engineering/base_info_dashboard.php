@@ -22,9 +22,5 @@ include __DIR__ . '/../../templates/header.php';
     <div class="col"><div class="card h-100 module-card shadow-sm"><a href="order_statuses.php"><div class="card-body"><div class="icon mb-3"><i class="bi bi-clipboard-check-fill"></i></div><h5 class="card-title">وضعیت‌های سفارش</h5></div></a></div></div>
     <div class="col"><div class="card h-100 module-card shadow-sm"><a href="priorities.php"><div class="card-body"><div class="icon mb-3"><i class="bi bi-bar-chart-line-fill"></i></div><h5 class="card-title">اولویت‌ها</h5></div></a></div></div>
     <div class="col"><div class="card h-100 module-card shadow-sm"><a href="task_statuses.php"><div class="card-body"><div class="icon mb-3"><i class="bi bi-check2-square"></i></div><h5 class="card-title">وضعیت‌های وظیفه</h5></div></a></div></div>
-    <div class="col"><div class="card h-100 module-card shadow-sm"><a href="maintenance_actions.php"><div class="card-body"><div class="icon mb-3"><i class="bi bi-wrench-adjustable"></i></div><h5 class="card-title">اقدامات نت</h5></div></a></div></div>
-    <div class="col"><div class="card h-100 module-card shadow-sm"><a href="maintenance_causes.php"><div class="card-body"><div class="icon mb-3"><i class="bi bi-exclamation-triangle-fill"></i></div><h5 class="card-title">دلایل نت</h5></div></a></div></div>
-    <div class="col"><div class="card h-100 module-card shadow-sm"><a href="maintenance_breakdown_types.php"><div class="card-body"><div class="icon mb-3"><i class="bi bi-heartbreak-fill"></i></div><h5 class="card-title">انواع خرابی نت</h5></div></a></div></div>
-    <div class="col"><div class="card h-100 module-card shadow-sm"><a href="eng_tool_types.php"><div class="card-body"><div class="icon mb-3"><i class="bi bi-hammer"></i></div><h5 class="card-title">انواع ابزار مهندسی</h5></div></a></div></div>
 </div>
 <?php include __DIR__ . '/../../templates/footer.php'; ?>

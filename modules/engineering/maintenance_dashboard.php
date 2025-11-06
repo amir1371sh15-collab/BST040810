@@ -19,7 +19,9 @@ include __DIR__ . '/../../templates/header.php';
 <p class="lead">در این بخش می‌توانید گزارش‌های خرابی قالب‌ها را ثبت کرده و تاریخچه تعمیرات را مشاهده نمایید.</p>
 
 <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4 mt-3">
-
+   <div class="col"><div class="card h-100 module-card shadow-sm"><a href="maintenance_actions.php"><div class="card-body"><div class="icon mb-3"><i class="bi bi-wrench-adjustable"></i></div><h5 class="card-title">اقدامات نت</h5></div></a></div></div>
+    <div class="col"><div class="card h-100 module-card shadow-sm"><a href="maintenance_causes.php"><div class="card-body"><div class="icon mb-3"><i class="bi bi-exclamation-triangle-fill"></i></div><h5 class="card-title">دلایل نت</h5></div></a></div></div>
+    <div class="col"><div class="card h-100 module-card shadow-sm"><a href="maintenance_breakdown_types.php"><div class="card-body"><div class="icon mb-3"><i class="bi bi-heartbreak-fill"></i></div><h5 class="card-title">انواع خرابی نت</h5></div></a></div></div>
     <div class="col">
         <div class="card h-100 module-card shadow-sm">
             <a href="maintenance_reports.php">
@@ -44,17 +46,6 @@ include __DIR__ . '/../../templates/header.php';
         </div>
     </div>
     
-    <div class="col">
-        <div class="card h-100 module-card shadow-sm">
-            <a href="base_info_dashboard.php">
-                <div class="card-body">
-                    <div class="icon mb-3"><i class="bi bi-info-circle-fill"></i></div>
-                    <h5 class="card-title">اطلاعات پایه نت</h5>
-                    <p class="card-text">مدیریت انواع خرابی، دلایل و اقدامات.</p>
-                </div>
-            </a>
-        </div>
-    </div>
 
 </div>
 

@@ -66,6 +66,19 @@ include __DIR__ . '/../../templates/header.php';
         </div>
     </div>
     <?php endif; ?>
+     <?php if (has_permission('warehouse.transactions.manage')): // Use same permission for now ?>
+     <div class="col">
+        <div class="card h-100 module-card shadow-sm">
+            <a href="wip_inventory_report.php">
+                <div class="card-body">
+                    <div class="icon mb-3"><i class="bi bi-calculator-fill"></i></div>
+                    <h5 class="card-title">کنترل موجودی (WIP)</h5>
+                    <p class="card-text">کنترل موجودی و مغایرت ها.</p>
+                </div>
+            </a>
+        </div>
+    </div>
+    <?php endif; ?>
 
     <!-- NEW CARD for Raw Materials -->
     <?php if (has_permission('warehouse.raw.view')): ?>

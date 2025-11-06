@@ -3,264 +3,215 @@
 require_once __DIR__ . '/../config/init.php';
 header('Content-Type: application/json; charset=utf-8');
 
-/**
- * Finds the *next* production step based on the current status
- */
-function find_next_station($pdo, $part_id, $current_status_id) {
-    // 1. Find the family of the part
-    $family_stmt = $pdo->prepare("SELECT FamilyID FROM tbl_parts WHERE PartID = ?");
-    $family_stmt->execute([$part_id]);
-    $family_id = $family_stmt->fetchColumn();
-    if (!$family_id) {
-        return null; // Part has no family, cannot find route
-    }
+// فرض می‌کنیم توابع find_one و find_all در config/crud_helpers.php تعریف شده‌اند.
+// فرض می‌کنیم تابع has_permission نیز وجود دارد.
 
-    // 2. Find the *source* station for this status
-    // We look for a route that *outputs* this status
-    $route_sql = "
-        SELECT FromStationID, ToStationID, NewStatusID
-        FROM tbl_routes
-        WHERE FamilyID = ? AND NewStatusID = ?
-        LIMIT 1
-    ";
-    $route_stmt = $pdo->prepare($route_sql);
-    $route_stmt->execute([$family_id, $current_status_id]);
-    $source_route = $route_stmt->fetch(PDO::FETCH_ASSOC);
-
-    if (!$source_route) {
-        // Maybe it's a non-standard route? Check overrides
-        $override_sql = "
-            SELECT FromStationID, ToStationID, OutputStatusID
-            FROM tbl_route_overrides
-            WHERE FamilyID = ? AND OutputStatusID = ? AND IsActive = 1
-            LIMIT 1
-        ";
-        $override_stmt = $pdo->prepare($override_sql);
-        $override_stmt->execute([$family_id, $current_status_id]);
-        $source_route = $override_stmt->fetch(PDO::FETCH_ASSOC);
-        if(!$source_route) {
-             return null; // Cannot find where this status comes from
-        }
-    }
-
-    // 3. Now find the *next* step *from* that station
-    $current_station_id = $source_route['ToStationID'];
-    
-    $next_route_sql = "
-        SELECT ToStationID, NewStatusID 
-        FROM tbl_routes 
-        WHERE FamilyID = ? AND FromStationID = ?
-        LIMIT 1
-    ";
-    $next_stmt = $pdo->prepare($next_route_sql);
-    $next_stmt->execute([$family_id, $current_station_id]);
-    $next_step = $next_stmt->fetch(PDO::FETCH_ASSOC);
-
-    if ($next_step) {
-        return [
-            'NextStationID' => $next_step['ToStationID'],
-            'TargetStatusID' => $next_step['NewStatusID']
-        ];
-    }
-    
-    // Check overrides as well
-     $next_override_sql = "
-        SELECT ToStationID, OutputStatusID 
-        FROM tbl_route_overrides 
-        WHERE FamilyID = ? AND FromStationID = ? AND IsActive = 1
-        LIMIT 1
-    ";
-    $next_override_stmt = $pdo->prepare($next_override_sql);
-    $next_override_stmt->execute([$family_id, $current_station_id]);
-    $next_override_step = $next_override_stmt->fetch(PDO::FETCH_ASSOC);
-
-     if ($next_override_step) {
-        return [
-            'NextStationID' => $next_override_step['ToStationID'],
-            'TargetStatusID' => $next_override_step['OutputStatusID']
-        ];
-    }
-
-    return null; // No next step found
-}
-
-
-$response = ['success' => false, 'message' => ''];
-$pdo->beginTransaction();
+$response = ['success' => false, 'message' => '', 'data' => null];
 
 try {
-    if (!has_permission('planning.mrp.run')) {
+    if (!has_permission('planning.production_schedule.edit')) {
         throw new Exception('شما مجوز دسترسی به این عملیات را ندارید.');
     }
 
     $input = json_decode(file_get_contents("php://input"), true);
-    $run_id = $input['run_id'] ?? 0;
-    $selected_reqs_ids = $input['net_requirements'] ?? [];
     $selected_wip_items = $input['wip_items'] ?? [];
+    $planning_date = $input['planning_date'] ?? date('Y-m-d');
 
-    if (empty($run_id) || (empty($selected_reqs_ids) && empty($selected_wip_items))) {
-        throw new Exception('اطلاعات ورودی ناقص است.');
+    if (empty($selected_wip_items)) {
+        throw new Exception('هیچ مورد WIP برای برنامه‌ریزی انتخاب نشده است.');
+    }
+
+    // --- ۱. جمع‌آوری داده‌های پایه ---
+    
+    // (A) - مسیرهای تولیدی (Routes): برای یافتن ایستگاه بعدی و وضعیت مورد نیاز
+    $routes_raw = find_all($pdo, "
+        SELECT 
+            PartID, CurrentStatusID, NextStatusID, NextStationID, op.OperationName, NextStationID
+        FROM tbl_part_routes pr
+        JOIN tbl_operations op ON op.OperationID = pr.NextOperationID
+    ");
+    $routes = [];
+    foreach ($routes_raw as $r) {
+        $key = $r['PartID'] . '_' . $r['CurrentStatusID'];
+        $routes[$key] = $r;
+    }
+
+    // (B) - موجودی WIP برای استخراج مقدار موجود
+    // ما باید این مقدار را از دیتابیس به صورت دقیق و تجمیع شده در Station 8 بگیریم.
+    // این منطق قبلاً در run_mrp_calculation.php وجود داشت، اما برای سادگی، یک کوئری مستقیم می‌زنیم.
+    $wip_supply_map = [];
+    // این کوئری باید WIP را بر اساس PartID و CurrentStatusID تجمیع کند
+    $wip_query = "
+        SELECT 
+            PartID, StatusAfterID AS CurrentStatusID, SUM(TotalNetWeightKG) AS TotalWeightKG
+        FROM tbl_stock_transactions 
+        WHERE ToStationID = 8 -- انبار نیمه‌ساخته
+        GROUP BY PartID, StatusAfterID
+        HAVING TotalWeightKG > 0
+    ";
+    $wip_data_raw = find_all($pdo, $wip_query);
+    
+    foreach ($wip_data_raw as $wip_item) {
+        $key = $wip_item['PartID'] . '_' . $wip_item['CurrentStatusID'];
+        // نیاز به منطق تبدیل وزن به تعداد (از tbl_part_weights) است، اما فعلاً فقط وزن را نگه می‌داریم.
+        $wip_supply_map[$key] = (float)$wip_item['TotalWeightKG'];
+    }
+
+
+    // (C) - ظرفیت ایستگاه‌ها
+    $capacity_rules = [];
+    // این منطق باید از tbl_capacity_rules یا مشابه آن بارگذاری شود
+    $capacity_raw = find_all($pdo, "
+        SELECT StationID, DailyCapacityKG, DailyCapacityPcs 
+        FROM tbl_station_capacity_rules
+    ");
+    foreach ($capacity_raw as $c) {
+        $capacity_rules[$c['StationID']] = $c;
     }
     
-    // Load all stations for name mapping
-    $all_stations_raw = find_all($pdo, "SELECT StationID, StationName FROM tbl_stations");
-    $all_stations = array_column($all_stations_raw, 'StationName', 'StationID');
+    // (D) - قواعد ناسازگاری (مانند ناسازگاری آبکاری یا ارتعاش)
+    $incompatibility_rules_raw = find_all($pdo, "
+        SELECT GroupID_A, GroupID_B, RuleDescription
+        FROM tbl_incompatibility_rules 
+        WHERE RuleType = 'Batch' -- مثال: قوانین دسته بندی
+    ");
     
-    // Clear old work orders for this run to prevent duplicates
-    $delete_stmt = $pdo->prepare("DELETE FROM tbl_planning_work_orders WHERE RunID = ?");
-    $delete_stmt->execute([$run_id]);
+    // فرض می‌کنیم توابعی برای یافتن PartName و UnitName وجود دارد.
+    // $all_parts = ... ; $all_units = ... ;
 
-    $work_orders = [];
-    $today = date('Y-m-d');
-    $due_date = date('Y-m-d', strtotime('+7 days')); // Default due date: 1 week
+    // --- ۲. محاسبه برنامه ناخالص بر اساس موارد انتخاب شده و فیلتر کردن ---
+    $planned_groups = []; // خروجی نهایی: تجمیع شده بر اساس ایستگاه
+    $selected_part_group_map = []; // برای بررسی محدودیت‌ها
 
-    // --- 1. Process Net Requirements ---
-    if (!empty($selected_reqs_ids)) {
-        $placeholders = rtrim(str_repeat('?,', count($selected_reqs_ids)), ',');
-        $net_reqs = find_all($pdo, "
-            SELECT * FROM tbl_planning_mrp_results 
-            WHERE RunID = ? AND ResultID IN ($placeholders)
-        ", array_merge([$run_id], $selected_reqs_ids));
+    foreach ($selected_wip_items as $item) {
+        $part_id = $item['part_id'];
+        $current_status_id = $item['status_id'];
+        $wip_key = $part_id . '_' . $current_status_id;
+        $route_key = $wip_key;
 
-        foreach ($net_reqs as $req) {
-            if ($req['ItemType'] == 'ماده اولیه') {
-                // TODO: Handle raw material purchase orders (Phase 3)
-                continue;
-            }
-            
-            $part_id = (int)$req['ItemID'];
-            $required_status_id = (int)$req['ItemStatusID']; // This is the *output* status we need
-            
-            // We need to find the station that *produces* this status
-            $route_info = find_next_station($pdo, $part_id, $required_status_id); // This is a helper, but we need the *source* station
-            
-            // Simplified logic: Find the station that *produces* this status
-            // This is a complex query, for now, let's find the route that *outputs* this
-             $source_route_sql = "
-                SELECT FromStationID, ToStationID 
-                FROM tbl_routes r
-                JOIN tbl_parts p ON r.FamilyID = p.FamilyID
-                WHERE p.PartID = ? AND r.NewStatusID = ?
-                LIMIT 1
-            ";
-            $source_stmt = $pdo->prepare($source_route_sql);
-            $source_stmt->execute([$part_id, $required_status_id]);
-            $source_route = $source_stmt->fetch(PDO::FETCH_ASSOC);
+        // الف. اطمینان از وجود مسیر و موجودی
+        if (!isset($routes[$route_key])) {
+            // این مورد نباید در لیست انتخاب ظاهر می‌شد، یا مسیر برای آن تعریف نشده است.
+            continue; 
+        }
 
-            if (!$source_route) {
-                // Cannot find a standard route. This logic needs improvement, but skip for now.
-                continue; 
-            }
-            
-            $station_id = (int)$source_route['ToStationID']; // The station that *does the work*
-            $input_status_id = (int)$source_route['FromStationID']; // This is complex, simplification:
-            
-            // Find the *previous* status
-            // This logic is complex. For Phase 2, we just schedule the work at the station.
-            // We assume the *input* status is the one *before* this on the route.
-            
-            // --- (USER LOGIC) ---
-            // "برنامه ریزی بر اساس مسیرها باید انجام بشه"
-            // This means we only schedule the *first* step.
-            // The first step is the one with no prerequisite part (it comes from raw)
-            // OR the one with the lowest "level" in the BOM.
-            
-            // --- SIMPLIFIED LOGIC for this step ---
-            // We just create a work order for the *station* that builds the *net required item*.
-            
-             $work_orders[] = [
-                'RunID' => $run_id,
-                'StationID' => $station_id,
-                'PartID' => $part_id,
-                'RequiredStatusID' => $required_status_id, // This is the *target* status
-                'TargetStatusID' => $required_status_id, // Simplification
-                'Quantity' => $req['NetRequirement'],
-                'Unit' => $req['Unit'],
-                'DueDate' => $due_date,
-                'StationName' => $all_stations[$station_id] ?? 'ناشناخته'
+        $route = $routes[$route_key];
+        $gross_demand_kg = $wip_supply_map[$wip_key] ?? 0;
+        
+        if ($gross_demand_kg < 0.01) {
+            continue; // موجودی کافی در WIP وجود ندارد.
+        }
+
+        $next_station_id = $route['NextStationID'];
+        
+        // ب. تعیین اطلاعات ایستگاه و ظرفیت
+        $station_name = get_station_name($pdo, $next_station_id); // تابع کمکی
+        $capacity = $capacity_rules[$next_station_id]['DailyCapacityKG'] ?? 999999;
+        $unit_name = 'KG'; // برای سادگی، مبنای واحد را KG در نظر می‌گیریم. (نیاز به منطق تبدیل دقیق‌تر دارد)
+        
+        // پ. محاسبه مقدار پیشنهادی (حداقل نیاز و حداکثر ظرفیت)
+        $suggested_qty_to_plan = min($gross_demand_kg, $capacity);
+        
+        // ت. تجمیع بر اساس ایستگاه و قطعه (برای نمایش در جدول)
+        if (!isset($planned_groups[$next_station_id])) {
+            $planned_groups[$next_station_id] = [
+                'StationName' => $station_name,
+                'Capacity' => $capacity,
+                'Unit' => $unit_name,
+                'parts' => []
             ];
         }
-    }
-    
-    // --- 2. Process WIP Items ---
-    if (!empty($selected_wip_items)) {
-         foreach ($selected_wip_items as $wip_item) {
-            list($part_id, $current_status_id) = explode(':', $wip_item);
-            $part_id = (int)$part_id;
-            $current_status_id = (int)$current_status_id;
+        
+        $part_key = $part_id . '_' . $route['NextStatusID'];
+        if (!isset($planned_groups[$next_station_id]['parts'][$part_key])) {
+            $planned_groups[$next_station_id]['parts'][$part_key] = [
+                'PartID' => $part_id,
+                'PartName' => get_part_name($pdo, $part_id), // تابع کمکی
+                'NextOperationName' => $route['OperationName'],
+                'NextStatusID' => $route['NextStatusID'],
+                'GrossDemand' => 0,
+                'SuggestedProductionQuantity' => 0,
+                'Unit' => $unit_name
+            ];
+        }
+        
+        $planned_groups[$next_station_id]['parts'][$part_key]['GrossDemand'] += $gross_demand_kg;
+        $planned_groups[$next_station_id]['parts'][$part_key]['SuggestedProductionQuantity'] += $suggested_qty_to_plan;
 
-            // Find the *next* step for this WIP item
-            $next_step = find_next_station($pdo, $part_id, $current_status_id);
-            
-            if ($next_step) {
-                $station_id = (int)$next_step['NextStationID'];
-                
-                // Get the quantity from WIP table (this is inefficient, but necessary)
-                $wip_qty_stmt = $pdo->prepare("
-                    SELECT SUM(NetWeightKG) AS TotalKG 
-                    FROM tbl_stock_transactions 
-                    WHERE ToStationID = 8 AND PartID = ? AND StatusAfterID = ?
-                ");
-                $wip_qty_stmt->execute([$part_id, $current_status_id]);
-                $quantity_kg = $wip_qty_stmt->fetchColumn();
-                
-                 $work_orders[] = [
-                    'RunID' => $run_id,
-                    'StationID' => $station_id,
-                    'PartID' => $part_id,
-                    'RequiredStatusID' => $current_status_id, // The *input* status
-                    'TargetStatusID' => (int)$next_step['TargetStatusID'], // The *output* status
-                    'Quantity' => $quantity_kg,
-                    'Unit' => 'KG', // WIP is always in KG
-                    'DueDate' => $due_date,
-                    'StationName' => $all_stations[$station_id] ?? 'ناشناخته'
-                ];
+        // ث. جمع‌آوری اطلاعات برای بررسی محدودیت‌ها
+        // فرض می‌کنیم تابعی برای گرفتن گروه دسته‌بندی قطعه (مانند گروه آبکاری یا ارتعاش) وجود دارد
+        $part_groups = get_part_planning_groups($pdo, $part_id); // تابع کمکی: [GroupID => GroupName, ...]
+        $selected_part_group_map[$part_id] = $part_groups;
+    }
+
+    // --- ۳. بررسی محدودیت‌ها (Constraints) ---
+    $warnings = [];
+    $part_ids_in_plan = array_keys($selected_part_group_map);
+
+    foreach ($incompatibility_rules_raw as $rule) {
+        $group_a = $rule['GroupID_A'];
+        $group_b = $rule['GroupID_B'];
+        $rule_desc = $rule['RuleDescription'];
+        
+        $parts_with_A = [];
+        $parts_with_B = [];
+        
+        foreach ($selected_wip_items as $item) {
+            $part_id = $item['part_id'];
+            $groups = $selected_part_group_map[$part_id];
+
+            // چک کردن اینکه آیا گروه A و B در میان قطعات انتخاب شده وجود دارند
+            if (array_key_exists($group_a, $groups)) {
+                $parts_with_A[] = get_part_name($pdo, $part_id);
             }
+            if (array_key_exists($group_b, $groups)) {
+                $parts_with_B[] = get_part_name($pdo, $part_id);
+            }
+        }
+        
+        // اگر هر دو نوع گروه در یک برنامه قرار گرفته‌اند
+        if (!empty($parts_with_A) && !empty($parts_with_B)) {
+            $warnings[] = "توجه: قطعات گروه **" . $group_a . "** (مانند: " . implode(', ', array_unique($parts_with_A)) . 
+                          ") و قطعات گروه **" . $group_b . "** (مانند: " . implode(', ', array_unique($parts_with_B)) . 
+                          ") در برنامه امروز قرار دارند. محدودیت: " . $rule_desc . " **(توصیه می‌شود برنامه لغو یا جدا شود)**.";
         }
     }
     
-    // --- 3. (USER LOGIC) Filter for Dependency ---
-    // "برنامه ریزی برای مونتاژش بی معناست"
-    // This is the most complex part. We must only create WOs for stations
-    // whose *input* materials are available.
-    
-    // For now, we create all WOs and will refine this in the next step.
-    // This simplified API saves all potential work.
-    
-    $wo_sql = "
-        INSERT INTO tbl_planning_work_orders
-        (RunID, StationID, PartID, RequiredStatusID, TargetStatusID, Quantity, Unit, DueDate)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    ";
-    $wo_stmt = $pdo->prepare($wo_sql);
-    
-    $work_orders_by_station = [];
 
-    foreach ($work_orders as $wo) {
-        $wo_stmt->execute([
-            $wo['RunID'],
-            $wo['StationID'],
-            $wo['PartID'],
-            $wo['RequiredStatusID'],
-            $wo['TargetStatusID'],
-            $wo['Quantity'],
-            $wo['Unit'],
-            $wo['DueDate']
-        ]);
-        $work_orders_by_station[$wo['StationName']][] = $wo;
-    }
-
-
-    $pdo->commit();
     $response['success'] = true;
-    $response['message'] = 'برنامه اولیه تولید با موفقیت ایجاد شد.';
-    $response['data']['work_orders_by_station'] = $work_orders_by_station;
+    $response['data'] = [
+        'planning_groups' => $planned_groups,
+        'warnings' => $warnings
+    ];
 
 } catch (Exception $e) {
-    $pdo->rollBack();
     http_response_code(500);
     $response['message'] = $e->getMessage();
 }
 
 echo json_encode($response, JSON_UNESCAPED_UNICODE);
+
+// --- توابع کمکی ساختگی (باید در config/functions.php یا مشابه آن پیاده‌سازی شوند) ---
+
+function get_station_name($pdo, $station_id) {
+    // منطق دیتابیسی برای بازیابی نام ایستگاه
+    return "ایستگاه " . $station_id;
+}
+
+function get_part_name($pdo, $part_id) {
+    // منطق دیتابیسی برای بازیابی نام قطعه
+    return "قطعه " . $part_id; 
+}
+
+function get_part_planning_groups($pdo, $part_id) {
+    // منطق دیتابیسی برای بازیابی گروه‌های دسته‌بندی قطعه (مثلاً گروه آبکاری)
+    // برای مثال: SELECT GroupID, GroupName FROM tbl_part_to_group WHERE PartID = ?
+    // خروجی ساختگی:
+    if ($part_id % 3 == 0) return [1 => 'آبکاری فسفاته'];
+    if ($part_id % 3 == 1) return [2 => 'آبکاری گالوانیزه'];
+    return [3 => 'ارتعاش شدید']; 
+}
+
+// --------------------------------------------------------------------------
+
 ?>

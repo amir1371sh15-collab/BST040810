@@ -45,8 +45,14 @@ try {
 
     $item_info = null;
     if ($item_id) {
-        $item_info = find_by_id($pdo, 'tbl_misc_items', $item_id, 'ItemID');
-        if (!$item_info) throw new Exception('ماده انتخاب شده یافت نشد.');
+        // (FIX 1) Modified query to also fetch UnitSymbol
+        $sql_item_info = "SELECT mi.ItemID, mi.ItemName, u.Symbol as UnitSymbol 
+                          FROM tbl_misc_items mi
+                          JOIN tbl_units u ON mi.UnitID = u.UnitID
+                          WHERE mi.ItemID = ?";
+        $item_info_raw = find_all($pdo, $sql_item_info, [$item_id]);
+        if (empty($item_info_raw)) throw new Exception('ماده انتخاب شده یافت نشد.');
+        $item_info = $item_info_raw[0]; // Get the first (and only) row
     }
 
     // --- Build Base WHERE Clause and Params ---
@@ -117,16 +123,37 @@ try {
     $report_data_by_item = [];
 
     // 1. Initialize balances
-    foreach ($initial_balances_raw as $row) {
-        $report_data_by_item[$row['ItemID']] = [
-            'item_name' => $row['ItemName'],
-            'unit_symbol' => $row['UnitSymbol'],
-            'initial_balance' => (float)$row['Balance'],
+    // (FIX 2) Handle the two scenarios: by item_id or by category_id
+    if ($item_id) {
+        // SCENARIO 1: Specific item was requested ($item_info is available)
+        $initial_balance_value = 0;
+        if (!empty($initial_balances_raw) && isset($initial_balances_raw[0]['Balance'])) {
+            $initial_balance_value = (float)$initial_balances_raw[0]['Balance'];
+        }
+
+        $report_data_by_item[$item_id] = [
+            'item_name' => $item_info['ItemName'], // Use $item_info
+            'unit_symbol' => $item_info['UnitSymbol'], // Use $item_info
+            'initial_balance' => $initial_balance_value,
             'transactions' => [],
             'total_inflow' => 0,
             'total_outflow' => 0,
-            'final_balance' => (float)$row['Balance'] // Start with initial
+            'final_balance' => $initial_balance_value // Start with initial
         ];
+        
+    } else {
+        // SCENARIO 2: Category was requested (the old logic works here)
+        foreach ($initial_balances_raw as $row) {
+            $report_data_by_item[$row['ItemID']] = [
+                'item_name' => $row['ItemName'],
+                'unit_symbol' => $row['UnitSymbol'],
+                'initial_balance' => (float)$row['Balance'],
+                'transactions' => [],
+                'total_inflow' => 0,
+                'total_outflow' => 0,
+                'final_balance' => (float)$row['Balance'] // Start with initial
+            ];
+        }
     }
     
     // 2. Process transactions

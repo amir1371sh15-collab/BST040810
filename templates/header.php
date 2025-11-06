@@ -45,7 +45,7 @@ if (!defined('BASE_URL')) {
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
   <div class="container-fluid">
     <!-- The main link now points to the dashboard -->
-    <a class="navbar-brand" href="<?php echo BASE_URL; ?>dashboard.php">سیستم مدیریت</a>
+    <a class="navbar-brand" href="<?php echo BASE_URL; ?>dashboard.php">شرکت مهندسی بهره ور سرمد توانا</a>
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#top-navbar">
       <span class="navbar-toggler-icon"></span>
     </button>

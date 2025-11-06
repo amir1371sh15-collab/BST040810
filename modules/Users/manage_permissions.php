@@ -52,31 +52,36 @@ $permissions_structure = [
             'pending_transactions.manage' => 'تعیین تکلیف تراکنش‌ها',
         ]
     ],
-    // --- ماژول برنامه‌ریزی ---
+    // --- ماژول برنامه‌ریزی (با فازهای MRP و زمان‌بندی) ---
     'planning' => [
-        'label' => 'برنامه‌ریزی تولید (MRP)',
+        'label' => 'برنامه‌ریزی تولید (Planning)',
         'permissions' => [
             'view' => 'مشاهده ماژول برنامه‌ریزی',
             'sales_orders.view' => 'مشاهده سفارشات فروش (تقاضا)',
             'sales_orders.manage' => 'مدیریت سفارشات فروش (تقاضا)',
+            
+            // فاز ۱: MRP
+            'mrp.run' => 'اجرای MRP (فاز ۱) و مشاهده نتایج',
+            'mrp.save_results' => 'ذخیره نتایج نیازمندی‌های خالص (فاز ۱)',
+            'production_schedule.view' => 'مشاهده برنامه‌ریزی پرسکاری',
+            'production_schedule.save' => 'ذخیره برنامه‌ریزی پرسکاری',
             'bom.view' => 'مشاهده ساختار محصول (BOM)',
             'bom.manage' => 'مدیریت ساختار محصول (BOM)',
             'safety_stock.view' => 'مشاهده نقطه سفارش قطعات',
             'safety_stock.manage' => 'مدیریت نقطه سفارش قطعات',
-            'view_alerts' => 'مشاهده هشدارهای موجودی قطعات (WIP)',
-            'mrp.run' => 'اجرای MRP و مشاهده نتایج'
+            'view_alerts' => 'مشاهده هشدارهای موجودی قطعات (MRP)',
         ]
    ],
     'planning_constraints' => [
-        'label' => 'برنامه‌ریزی - محدودیت‌ها (FCS)',
+        'label' => 'برنامه‌ریزی - محدودیت‌ها (Constraints)',
         'permissions' => [
             'view' => 'مشاهده داشبورد محدودیت‌ها',
             'manage' => 'مدیریت قوانین محدودیت‌ها',
-            // [دسترسی جدید اضافه شده]
             'planning_capacity.run' => 'اجرا و بازبینی ظرفیت روزانه'
         ]
     ],
-    // --- [پایان بخش اضافه شده] ---
+    // --- پایان ماژول برنامه‌ریزی ---
+    
     'warehouse' => [
         'label' => 'انبار',
         'permissions' => [
@@ -85,11 +90,11 @@ $permissions_structure = [
             'inventory.view' => 'مشاهده داشبورد موجودی (قطعات)',
             'inventory.snapshot' => 'ثبت عکس لحظه‌ای موجودی (قطعات)',
             'inventory.history' => 'مشاهده تاریخچه عکس‌های لحظه‌ای (قطعات)',
-            'inventory.alerts' => 'مشاهده هشدارهای انبار مواد (متفرقه/اولیه)', // مربوط به inventory_alerts.php
+            'inventory.alerts' => 'مشاهده هشدارهای انبار مواد (متفرقه/اولیه)', 
             'misc.view' => 'مشاهده انبار متفرقه',
             'misc.manage' => 'مدیریت انبار متفرقه (تعاریف، تراکنش)',
-            'raw.view' => 'مشاهده انبار مواد اولیه', // دسترسی برای raw_...
-            'raw.manage' => 'مدیریت انبار مواد اولیه (تعاریف، تراکنش)' // دسترسی برای raw_...
+            'raw.view' => 'مشاهده انبار مواد اولیه', 
+            'raw.manage' => 'مدیریت انبار مواد اولیه (تعاریف، تراکنش)' 
         ]
     ],
     'users' => [
@@ -238,4 +243,48 @@ include __DIR__ . '/../../templates/header.php';
 <?php endif; ?>
 
 <?php include __DIR__ . '/../../templates/footer.php'; ?>
+<script>
+$(document).ready(function() {
+    // منطق انتخاب/عدم انتخاب همه چک باکس‌های یک نقش
+    $('.list-group').each(function() {
+        const fieldset = $(this).closest('fieldset');
+        const moduleKey = fieldset.find('legend').text().split('(')[1]?.replace(')', '').trim().toLowerCase();
+        
+        if (!moduleKey) return;
 
+        const selectAllHtml = `<label class="list-group-item list-group-item-dark fw-bold"><input type="checkbox" class="form-check-input select-all-module me-2" data-module-key="${moduleKey}"> انتخاب/لغو همه</label>`;
+        $(this).prepend(selectAllHtml);
+    });
+    
+    $(document).on('change', '.select-all-module', function() {
+        const isChecked = $(this).prop('checked');
+        const fieldset = $(this).closest('fieldset');
+        fieldset.find('.list-group-item:not(.list-group-item-dark) .form-check-input').prop('checked', isChecked);
+    });
+
+    // منطق بررسی/عدم بررسی چک باکس انتخاب همه بر اساس وضعیت چک باکس‌های فرزند
+    $(document).on('change', '.form-check-input:not(.select-all-module)', function() {
+        const fieldset = $(this).closest('fieldset');
+        const allCount = fieldset.find('.form-check-input:not(.select-all-module)').length;
+        const checkedCount = fieldset.find('.form-check-input:not(.select-all-module):checked').length;
+        
+        const moduleCheckbox = fieldset.find('.select-all-module');
+        if (allCount === checkedCount) {
+            moduleCheckbox.prop('checked', true);
+        } else {
+            moduleCheckbox.prop('checked', false);
+        }
+    });
+
+    // چک کردن وضعیت اولیه "انتخاب همه" هنگام بارگذاری صفحه
+    $('.list-group').each(function() {
+         const fieldset = $(this).closest('fieldset');
+         const allCount = fieldset.find('.form-check-input:not(.select-all-module)').length;
+         const checkedCount = fieldset.find('.form-check-input:not(.select-all-module):checked').length;
+         if (allCount > 0 && allCount === checkedCount) {
+             fieldset.find('.select-all-module').prop('checked', true);
+         }
+    });
+
+});
+</script>
