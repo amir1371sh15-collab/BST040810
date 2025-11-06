@@ -8,7 +8,7 @@ const RECORDS_PER_PAGE = 20;
 
 $editMode = false;
 $itemToEdit = null;
-$itemSizeName = null; // Variable to hold SizeName in edit mode
+$itemSizeName = null; // Variable to hold SizeName in edit mode (used for JS initial load)
 $message = $_SESSION['message'] ?? '';
 $message_type = $_SESSION['message_type'] ?? '';
 unset($_SESSION['message'], $_SESSION['message_type']);
@@ -31,21 +31,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (isset($_POST['id']) && !empty($_POST['id'])) {
             // --- UPDATE ---
             $partId = (int)$_POST['id'];
-            // Family and Size are generally not editable after creation in this flow
+            
+            // **MODIFIED:** مقادیر خانواده و سایز را از فرم دریافت کن
+            $family_id = isset($_POST['family_id']) ? (int)$_POST['family_id'] : null;
+            $size_id = isset($_POST['size_id']) ? (int)$_POST['size_id'] : null;
+
             $data = [
                 'PartName' => trim($_POST['part_name_edit']),
                 'PartCode' => trim($_POST['part_code_edit']),
                 'Description' => trim($_POST['description']),
-                // FamilyID and SizeID are NOT updated here intentionally
+                'FamilyID' => $family_id, // **MODIFIED:** این خط اضافه شد
+                'SizeID' => $size_id        // **MODIFIED:** این خط اضافه شد
             ];
+
              if (empty($data['PartName']) || empty($data['PartCode'])) {
                 $result = ['success' => false, 'message' => 'نام و کد قطعه در حالت ویرایش الزامی است.'];
+                $_SESSION['message_type'] = 'warning';
+             } elseif (empty($data['FamilyID']) || empty($data['SizeID'])) { // **MODIFIED:** این اعتبارسنجی اضافه شد
+                $result = ['success' => false, 'message' => 'انتخاب خانواده و سایز در حالت ویرایش نیز الزامی است.'];
                 $_SESSION['message_type'] = 'warning';
             } else {
                 $result = update_record($pdo, TABLE_NAME, $data, $partId, PRIMARY_KEY);
                 $_SESSION['message'] = $result['message'];
                 $_SESSION['message_type'] = $result['success'] ? 'success' : 'danger';
             }
+            
         } else {
             // --- INSERT ---
             $family_id = isset($_POST['family_id']) ? (int)$_POST['family_id'] : null;
@@ -105,7 +115,7 @@ if (isset($_GET['edit_id'])) {
     if ($itemToEdit && isset($itemToEdit['SizeID'])) {
         $sizeInfo = find_by_id($pdo, 'tbl_part_sizes', $itemToEdit['SizeID'], 'SizeID');
         if($sizeInfo) {
-            $itemSizeName = $sizeInfo['SizeName'];
+            $itemSizeName = $sizeInfo['SizeName']; // This is now only used by JS
         }
     }
 }
@@ -143,10 +153,10 @@ include __DIR__ . '/../../templates/header.php';
                         <input type="hidden" name="id" value="<?php echo $itemToEdit[PRIMARY_KEY]; ?>">
                     <?php endif; ?>
 
-                    <!-- Family Dropdown (Enabled in Add mode, Disabled in Edit mode) -->
+                    <!-- **MODIFIED:** Family Dropdown (Enabled in Add AND Edit mode) -->
                     <div class="mb-3">
                         <label class="form-label">خانواده قطعه</label>
-                        <select class="form-select" id="family_id" name="family_id" <?php echo $editMode ? 'disabled' : 'required'; ?>>
+                        <select class="form-select" id="family_id" name="family_id" required> <!-- 'disabled' attribute removed -->
                             <option value="">انتخاب کنید</option>
                             <?php foreach ($families as $family): ?>
                                 <option value="<?php echo $family['FamilyID']; ?>" <?php echo ($editMode && isset($itemToEdit['FamilyID']) && $itemToEdit['FamilyID'] == $family['FamilyID']) ? 'selected' : ''; ?>>
@@ -154,22 +164,16 @@ include __DIR__ . '/../../templates/header.php';
                                 </option>
                             <?php endforeach; ?>
                         </select>
-                        <?php if ($editMode && $itemToEdit): ?>
-                            <input type="hidden" name="family_id_hidden_on_edit" value="<?php echo $itemToEdit['FamilyID']; ?>">
-                        <?php endif; ?>
+                         <!-- Hidden input field removed -->
                     </div>
 
-                    <!-- Size Dropdown (Add mode) / Display (Edit mode) -->
+                    <!-- **MODIFIED:** Size Dropdown (Always a dropdown) -->
                     <div class="mb-3">
                         <label class="form-label">سایز قطعه</label>
-                        <?php if (!$editMode): ?>
-                            <select class="form-select" id="size_id" name="size_id" required disabled>
-                                <option value="">-- ابتدا خانواده را انتخاب کنید --</option>
-                            </select>
-                        <?php else: ?>
-                            <input type="text" class="form-control" value="<?php echo htmlspecialchars($itemSizeName ?? 'نامشخص'); ?>" readonly>
-                             <input type="hidden" name="size_id_hidden_on_edit" value="<?php echo $itemToEdit['SizeID'] ?? ''; ?>">
-                        <?php endif; ?>
+                        <!-- The if/else for editMode is removed. It's always a dropdown now. -->
+                        <select class="form-select" id="size_id" name="size_id" required disabled>
+                            <option value="">-- ابتدا خانواده را انتخاب کنید --</option>
+                        </select>
                     </div>
 
                     <?php if ($editMode && $itemToEdit): ?>
@@ -302,14 +306,16 @@ $(document).ready(function() {
             });
     }
 
-    // Event listener for family dropdown (only in Add mode)
-    if (!isEditMode) {
-        familySelect.on('change', function() {
-            populateSizes($(this).val());
-        });
-    }
+    // **MODIFIED:** Event listener for family dropdown (now works in Add AND Edit mode)
+    familySelect.on('change', function() {
+        // در حالت ویرایش، اگر کاربر خانواده را عوض کرد، مقدار سایز قبلی را نگه نمیداریم
+        const sizeToSelect = isEditMode ? null : $(this).val();
+        populateSizes($(this).val(), sizeToSelect);
+    });
 
     // Initial population for Edit mode (if family is selected)
+    // این کد در اولین بار بارگذاری صفحه در حالت ویرایش، سایزهای خانواده فعلی را لود میکند
+    // و سایز ذخیره شده قطعه (initialSizeId) را انتخاب میکند
     if (isEditMode && familySelect.val()) {
         populateSizes(familySelect.val(), initialSizeId);
     }
